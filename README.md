@@ -1,6 +1,6 @@
 # JBDAP-Node-Wrap Document
 
-## **[中文版介绍请戳这里](./README-CN.MD)**
+## **[中文版介绍请戳这里](https://github.com/JBDAP/JBDAP-Node-Wrap/blob/master/README-CN.md)**
 
 # 1. Introduction: 
 

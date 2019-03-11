@@ -1,6 +1,6 @@
 # JBDAP-Node-Wrap 文档
 
-## **[English Version](./README.md)**
+## **[English Version](https://github.com/JBDAP/JBDAP-Node-Wrap/blob/master/README.md)**
 
 <div id="nav" style="width:100%;height:1px;border:none;"></div>
 
