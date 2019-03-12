@@ -6,8 +6,16 @@
 if (!global.NiceError) require('./global')
 
 // 引入相关模块
-const parser = require('./parser')
+import parser from './parser'
 
+/**
+ * 条件运算
+ * @param {object} obj 要计算的条件
+ * @param {string} relation 关系
+ * @param {object} parent 父对象
+ * @param {object} root 数据根目录
+ * @param {object} self 自身对象
+ */
 function checkCondition(obj,relation,parent,root,self) {
     let res = []
     try {
@@ -58,6 +66,13 @@ function checkCondition(obj,relation,parent,root,self) {
 }
 module.exports.checkCondition = checkCondition
 
+/**
+ * 单条件比较运算
+ * @param {object} comparision 比较结构体
+ * @param {object} parent 父对象
+ * @param {object} root 数据根目录
+ * @param {object} self 自身对象
+ */
 function compare(comparision,parent,root,self) {
     try {
         let left = comparision.left, right = comparision.right, operator = comparision.operator
@@ -132,6 +147,13 @@ function compare(comparision,parent,root,self) {
 }
 module.exports.compare = compare
 
+/**
+ * 把标签转成值
+ * @param {string} tag 要转换的标签
+ * @param {object} parent 父对象
+ * @param {object} root 数据根目录
+ * @param {object} self 自身对象
+ */
 function tag2value(tag,parent,root,self) {
     try {
         // 要取值的对象
@@ -218,6 +240,11 @@ function tag2value(tag,parent,root,self) {
 }
 module.exports.tag2value = tag2value
 
+/**
+ * 对数据集进行取值运算
+ * @param {array} list 数据集
+ * @param {object} obj 操作描述结构体
+ */
 function getValue(list,obj) {
     try {
         let result = null

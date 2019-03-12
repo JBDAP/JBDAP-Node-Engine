@@ -73,7 +73,7 @@
 
 为了演示 JBDAP-Node-Wrap 的能力，我在这里设计了一个多用户博客应用的数据库并填充了一些测试数据，各个表的用途及其及关联在下图中一目了然：
 
-![数据库结构示意图](./doc/img/tables.png)
+![数据库结构示意图](https://github.com/JBDAP/JBDAP-Node-Wrap/raw/master/doc/img/tables.png)
 
 其设计遵循了几个基本原则：
 
@@ -1972,12 +1972,12 @@ SQL 及 Response 代码这里就不再贴了，没有区别。
 
 ### **2.9.2 服务端 logs**
 
-如果你希望检查指令在服务端的运行顺序是否如自己预期，可以将 withLogs 配置为 true
+如果你希望检查指令在服务端的运行顺序是否如自己预期，可以将 needLogs 配置为 true
 
 Request:
 ~~~
 {
-    withLogs: true,     // 告知服务器需要返回执行日志
+    needLogs: true,     // 告知服务器需要返回执行日志
     commands: [
         {
             name: 'userInfo',

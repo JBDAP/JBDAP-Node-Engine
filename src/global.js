@@ -3,10 +3,11 @@
  */
 
 // 换行符
-global.EOL = require('os').EOL
+import { EOL } from 'os'
+global.EOL = EOL
 
 // 丰富原生 js
-require('./makeup')
+import './makeup'
 
 /**
  * 基于NiceError的一系列错误处理策略
@@ -14,7 +15,8 @@ require('./makeup')
  * 抛出一个错误
  * 处理一个错误
  */
-global.NiceError = require('./NiceError.js');
+import NiceError from './NiceError'
+global.NiceError = NiceError
 // 返回一个NiceError对象
 global.$newError = function(message,cause,info,name){
     return new NiceError(
@@ -58,7 +60,9 @@ global.$exec = (promise) => {
 }
 
 // 全局挂载 lodash
-global._ = require('lodash')
+import _ from 'lodash'
+global._ = _
 
 // 全局挂载 crypto
-global.crypto = require('./crypto')
+import crypto from './crypto'
+global.crypto = crypto

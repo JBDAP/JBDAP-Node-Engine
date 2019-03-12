@@ -4,7 +4,7 @@
  * 传入给 JBDAP 模块的 manipulate 函数当参数使用
  */
 
-if (!global.NiceError) require('../src/global')
+if (!global.NiceError) require('../lib/global')
 
 /**
  * 对查询得到的数据进行敏感字段过滤后返回
@@ -15,7 +15,7 @@ if (!global.NiceError) require('../src/global')
  */
 function scan(user,cmd,fields,data) {
     // 这里根据 cmd.type 和 被请求的字段，结合 user 信息对 data 进行敏感数据过滤
-    // 只有 entity、list、values(clone操作) 类型的查询需要进行此操作
+    // 只有查询类型的指令需要进行此操作
     // TODO:
     return data
 }

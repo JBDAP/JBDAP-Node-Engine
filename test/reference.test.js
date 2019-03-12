@@ -35,7 +35,7 @@ test('测试 getObjFromObj 方法', () => {
         expect(err.fullMessage()).toMatch(/FieldNotExistError/)
     }
     try {
-        fileds = ['pA',{bigB: 'pD'}]
+        fields = ['pA',{bigB: 'pD'}]
         reference.getObjFromObj(data,fields)
     }
     catch (err) {

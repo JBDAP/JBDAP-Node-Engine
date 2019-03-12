@@ -13,9 +13,8 @@ function checkJson(json){
     // 参数可用性检查
     if (Object.prototype.toString.call(json) !== '[object Object]') $throwError('传入的参数必须是 Object 类型',null,{},'ParamTypeError')
     // json 属性可用性检查
-    if (!_.isUndefined(json.token) && !_.isString(json.token)) $throwError('属性 [token] 必须是 String 类型',null,{},'PropTypeError')
-    if (json.token === '') $throwError('属性 [token] 不可以为空字符串',null,{},'PropValueError')
-    if (!_.isUndefined(json.withLogs) && !_.isBoolean(json.withLogs)) $throwError('属性 [withLogs] 必须是 Boolean 类型',null,{},'PropTypeError')
+    if (!_.isUndefined(json.security) && Object.prototype.toString.call(json.security) !== '[object Object]') $throwError('属性 [security] 必须是 Object 类型',null,{},'PropTypeError')
+    if (!_.isUndefined(json.needLogs) && !_.isBoolean(json.needLogs)) $throwError('属性 [needLogs] 必须是 Boolean 类型',null,{},'PropTypeError')
     if (!_.isUndefined(json.isTransaction) && !_.isBoolean(json.isTransaction)) $throwError('属性 [isTransaction] 必须是 Boolean 类型',null,{},'PropTypeError')
     // commands
     if (_.isUndefined(json.commands)) $throwError('属性 [commands] 必须要配置',null,{},'PropMissingError')
@@ -107,7 +106,7 @@ function checkTopCommand(cmd) {
     // 只有顶级指令需要指明是否 return
     // fields 下的级联查询肯定需要返回
     // after 下的级联操作无需返回
-    key = 'return'
+    let key = 'return'
     if (!_.isUndefined(cmd[key]) && !_.isBoolean(cmd[key])) $throwError('属性 [' + key + '] 必须是 Boolean 类型',null,{},'PropTypeError')
     return true
 }

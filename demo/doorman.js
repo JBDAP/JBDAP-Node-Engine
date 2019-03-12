@@ -1,10 +1,10 @@
 /**
- * 数据访问权限校验模块
+ * 数据访问权限控制模块
  * 这个模块必须由后端开发人员来写
  * 传入给 JBDAP 模块的 manipulate 函数当参数使用
  */
 
-if (!global.NiceError) require('../src/global')
+if (!global.NiceError) require('../lib/global')
 
 /**
  * 检查当前用户是否拥有执行该操作的权限

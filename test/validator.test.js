@@ -41,38 +41,27 @@ test('测试 checkJson 方法', () => {
         expect(err.name).toBe('PropValueError')
         expect(err.fullMessage()).toMatch(/commands/)
     }
-    // token 类型不对
+    // security 类型不对
     json = {
-        token: 123
+        security: 123
     }
     try {
         validator.checkJson(json)
     }
     catch (err) {
         expect(err.name).toBe('PropTypeError')
-        expect(err.fullMessage()).toMatch(/token/)
+        expect(err.fullMessage()).toMatch(/security/)
     }
-    // token 不能为空
+    // needLogs 类型不对
     json = {
-        token: ''
-    }
-    try {
-        validator.checkJson(json)
-    }
-    catch (err) {
-        expect(err.name).toBe('PropValueError')
-        expect(err.fullMessage()).toMatch(/token/)
-    }
-    // withLogs 类型不对
-    json = {
-        withLogs: "true"
+        needLogs: "true"
     }
     try {
         validator.checkJson(json)
     }
     catch (err) {
         expect(err.name).toBe('PropTypeError')
-        expect(err.fullMessage()).toMatch(/withLogs/)
+        expect(err.fullMessage()).toMatch(/needLogs/)
     }
     // isTransaction 类型不对
     json = {
@@ -87,7 +76,7 @@ test('测试 checkJson 方法', () => {
     }
     // 完全正常
     json = {
-        withLogs: false,
+        needLogs: false,
         isTransaction: false,
         commands: [
             {}
@@ -95,8 +84,8 @@ test('测试 checkJson 方法', () => {
     }
     expect(validator.checkJson(json)).toBe(true)
     json = {
-        token: "12312sdsfsdsad212",
-        withLogs: false,
+        securit: {},
+        needLogs: false,
         isTransaction: false,
         commands: [
             {}

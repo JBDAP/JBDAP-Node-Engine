@@ -2,6 +2,9 @@
  * JBDAP-node-wrap 入口
  */
 
+// 使用 babel 打包时需要用到 polyfill
+import '@babel/polyfill'
+
 // 引入开发糖
 if (!global.NiceError) require('./global')
 
@@ -9,19 +12,20 @@ if (!global.NiceError) require('./global')
 global.$dbServer = 'unknown'
 
 // 引入其它模块
-const validator = require('./validator')
-const parser = require('./parser')
-const calculator = require('./calculator')
-const reference = require('./reference')
+import validator from './validator'
+import parser from './parser'
+import calculator from './calculator'
+import reference from './reference'
 
 /**
  * 解析并执行 json 中的指令
  * @param {object} knex 数据库连接对象
+ * @param {function} recognizer 身份识别函数
  * @param {function} doorman 权限校验函数
  * @param {function} scanner 数据扫描器，用于屏蔽敏感字段，不返回给调用者
  * @param {object} json 要执行的 JBDAP 参数
  */
-async function manipulate(knex,doorman,scanner,json) {
+async function manipulate(knex,recognizer,doorman,scanner,json) {
     // 执行完成后返回的结果
     let returnObj = {
         code: 1,
@@ -37,9 +41,9 @@ async function manipulate(knex,doorman,scanner,json) {
         logs.push('- 检查接收到的 JSON 是否合法')
         validator.checkJson(json)
         // 2、取得当前用户用户账号及权限定义
-        let user = await getCurrentUser(knex,json.token)
         logs.push('* 用户身份校验')
-        user.authority = JSON.parse(user.authority)
+        let user = {}
+        if (_.isFunction(recognizer)) user = await recognizer(json.security || {})
         // 3、定义要用到的变量
         // root 用于保存数据的临时空间
         let root = {}
@@ -63,7 +67,7 @@ async function manipulate(knex,doorman,scanner,json) {
         }
         // console.log('原始数据：',JSON.stringify(root,null,4))
         // 整理返回格式
-        if (json.withLogs !== true) delete returnObj.logs
+        if (json.needLogs !== true) delete returnObj.logs
         else returnObj.logs = logs
         return returnObj
     }
@@ -72,13 +76,15 @@ async function manipulate(knex,doorman,scanner,json) {
         returnObj.code = 0
         returnObj.message = err.fullMessage()
         returnObj.data = null
-        if (json.withLogs !== true) delete returnObj.logs
+        if (json.needLogs !== true) delete returnObj.logs
         else returnObj.logs = logs
         return returnObj
         // $throwError('执行 JBDAP 任务出错',err,{},'JBDAPError')
     }
 }
 module.exports.manipulate = manipulate
+import { version } from '../package.json'
+module.exports.version = version
 
 /**
  * 设定当前运行环境的数据库名称
@@ -96,55 +102,66 @@ module.exports.setServerName = setServerName
  * @param {object} knex 数据库实例
  * @param {string} token 要查询的 token
  */
-async function getCurrentUser(knex,token) {
-    let condition = {}
-    let result = {
-        id: 0,
-        role: 'default',
-        authority: null
-    }
-    // 如果 token 为 undefined 或者空字符串，则返回默认角色，即 'default' role
-    if (_.isUndefined(token) || (_.isString(token) && token === '')) {
-        condition = {
-            name: 'default'
-        }
-    }
-    else {
-        // 读取 token 记录
-        let tokenInfo = await $exec(knex('JBDAP_Token').select(['userId','roleId','expiresAt']).where({
-            token: token
-        }))
-        if (tokenInfo.error) $throwError('查询 token 信息失败',tokenInfo.error,{},'DBQueryError')
-        if (tokenInfo.data === null) $throwError('找不到 token 记录',null,{
-            token: token
-        },'TokenError')
-        if (tokenInfo.data.length !== 1) {
-            $throwError('无法正确读取 token 信息',tokenInfo.error,{
-                count: tokenInfo.data.length
-            },'DBQueryError')
-        }
-        else {
-            condition = {
-                id: tokenInfo.data[0].roleId
-            }
-            result.id = tokenInfo.data[0].userId
-        }
-    }
-    // 查询角色信息
-    let roleInfo = await $exec(knex.select(['name','authority']).from('JBDAP_Role').where(condition))
-    if (roleInfo.error) $throwError('查询默认角色权限失败',roleInfo.error,{},'DBQueryError')
-    if (roleInfo.data.length === 1) {
-        // 查询成功
-        result.role = roleInfo.data[0].name
-        result.authority = roleInfo.data[0].authority
-    }
-    else $throwError('无法正确读取默认角色权限',roleInfo.error,{
-        count: roleInfo.data.length
-    },'DBQueryError')
-    return result
-}
-module.exports.getCurrentUser = getCurrentUser
+// async function getCurrentUser(knex,token) {
+//     let condition = {}
+//     let result = {
+//         id: 0,
+//         role: 'default',
+//         authority: null
+//     }
+//     // 如果 token 为 undefined 或者空字符串，则返回默认角色，即 'default' role
+//     if (_.isUndefined(token) || (_.isString(token) && token === '')) {
+//         condition = {
+//             name: 'default'
+//         }
+//     }
+//     else {
+//         // 读取 token 记录
+//         let tokenInfo = await $exec(knex('JBDAP_Token').select(['userId','roleId','expiresAt']).where({
+//             token: token
+//         }))
+//         if (tokenInfo.error) $throwError('查询 token 信息失败',tokenInfo.error,{},'DBQueryError')
+//         if (tokenInfo.data === null) $throwError('找不到 token 记录',null,{
+//             token: token
+//         },'TokenError')
+//         if (tokenInfo.data.length !== 1) {
+//             $throwError('无法正确读取 token 信息',tokenInfo.error,{
+//                 count: tokenInfo.data.length
+//             },'DBQueryError')
+//         }
+//         else {
+//             condition = {
+//                 id: tokenInfo.data[0].roleId
+//             }
+//             result.id = tokenInfo.data[0].userId
+//         }
+//     }
+//     // 查询角色信息
+//     let roleInfo = await $exec(knex.select(['name','authority']).from('JBDAP_Role').where(condition))
+//     if (roleInfo.error) $throwError('查询默认角色权限失败',roleInfo.error,{},'DBQueryError')
+//     if (roleInfo.data.length === 1) {
+//         // 查询成功
+//         result.role = roleInfo.data[0].name
+//         result.authority = roleInfo.data[0].authority
+//     }
+//     else $throwError('无法正确读取默认角色权限',roleInfo.error,{
+//         count: roleInfo.data.length
+//     },'DBQueryError')
+//     return result
+// }
+// module.exports.getCurrentUser = getCurrentUser
 
+/**
+ * 开始执行指令
+ * @param {object} knex knex 实例
+ * @param {function} doorman 权限控制模块
+ * @param {function} scanner 字段加密模块
+ * @param {array} commands 指令集
+ * @param {boolean} isTrans 是否事务
+ * @param {object} root 数据存储根目录
+ * @param {array} logs 日志
+ * @param {object} user 当前用户身份信息
+ */
 async function proceed(knex,doorman,scanner,commands,isTrans,root,logs,user) {
     // 检查是否以事务执行
     if (isTrans === true) {
@@ -183,6 +200,21 @@ async function proceed(knex,doorman,scanner,commands,isTrans,root,logs,user) {
     }
 }
 
+/**
+ * 处理单个指令
+ * @param {object} knex knex实例
+ * @param {object} trx 事务对象
+ * @param {function} doorman 权限控制模块
+ * @param {function} scanner 字段加密模块
+ * @param {boolean} isTop 是否顶层指令
+ * @param {object} cmd 单个指令
+ * @param {object} parent 当前指令的父对象
+ * @param {object} root 数据存储根目录
+ * @param {array} logs 日志
+ * @param {object} user 当前用户身份信息
+ * @param {array} commands 指令集
+ * @param {integer} level 缩进层次
+ */
 async function handleCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,user,commands,level) {
     try {
         if (isTop === true) logs.push(prefix(level) + '$ 开始执行顶层指令 /' + cmd.name + ' - ' + cmd.type + ' 类型')
@@ -218,9 +250,17 @@ async function handleCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,use
         }
         // 3、检查指令权限
         // logs.push('* 检查是否具有操作当前指令的权限')
-        if (doorman(user,cmd) === false) {
-            // logs.push('* 没有权限！终止 JBDAP 任务')
-            $throwError('没有权限执行当前指令 "' + cmd.name + '"',null,{},'JBDAPAuthError')
+        // 非引用指令才有必要检查
+        if (cmd.target.indexOf('/') < 0) {
+            // 以 JBDAP_ 开头的系统内置表均不可被前端访问
+            if (cmd.target.indexOf('JBDAP_') === 0) $throwError('没有权限执行当前指令 "' + cmd.name + '"',null,{},'JBDAPAuthError')
+            // 调用自定义权限控制函数进行检查
+            if (_.isFunction(doorman)) {
+                if (doorman(user,cmd) === false) {
+                    // logs.push('* 没有权限！终止 JBDAP 任务')
+                    $throwError('没有权限执行当前指令 "' + cmd.name + '"',null,{},'JBDAPAuthError')
+                }
+            }
         }
         // 4、对指令进行分类执行
         switch (cmd.type) {
@@ -263,12 +303,31 @@ async function handleCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,use
     }
 }
 
+/**
+ * 根据缩进增加空格
+ * @param {integer} n 缩进层次
+ */
 function prefix(n) {
     let result = ''
     for (let i=1; i<n; i++) result += '  '
     return result
 }
 
+/**
+ * 执行单个查询指令
+ * @param {object} knex knex实例
+ * @param {object} trx 事务对象
+ * @param {function} doorman 权限控制模块
+ * @param {function} scanner 字段加密模块
+ * @param {boolean} isTop 是否顶层指令
+ * @param {object} cmd 单个指令
+ * @param {object} parent 当前指令的父对象
+ * @param {object} root 数据存储根目录
+ * @param {array} logs 日志
+ * @param {object} user 当前用户身份信息
+ * @param {array} commands 指令集
+ * @param {integer} level 缩进层次
+ */
 async function queryCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,user,commands,level) {
     // 查询类指令
     let result = null
@@ -352,7 +411,13 @@ async function queryCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,user
             console.log('sql:',query.toString())
             result = await query
             // console.log('result',result)
-            // 5、如果是 values 取值查询，则执行相应的数据处理
+            // 5、敏感字段过滤
+            // logs.push('$ 屏蔽 "' + cmd.name + '" 的敏感字段')
+            // 非引用类型才需要过滤
+            if (cmd.target.indexOf('/') < 0) {
+                if (_.isFunction(scanner)) result = scanner(user,cmd,fields,result)
+            }
+            // 6、如果是 values 取值查询，则执行相应的数据处理
             if (cmd.type === 'values') {
                 if (valuesFields.length === 0) $throwError('values 查询类型至少要定义一个取值字段',null,{},'CmdDefError')
                 let values = {}
@@ -364,9 +429,6 @@ async function queryCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,user
                 result = values
             }
             // console.log('values',values)
-            // 6、敏感字段过滤
-            // logs.push('$ 屏蔽 "' + cmd.name + '" 的敏感字段')
-            result = scanner(user,cmd,fields,result)
         }
         // 7、填充级联字段
         if (cmd.type !== 'values') {
@@ -404,6 +466,21 @@ async function queryCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,user
     }
 }
 
+/**
+ * 执行单个操作指令
+ * @param {object} knex knex实例
+ * @param {object} trx 事务对象
+ * @param {function} doorman 权限控制模块
+ * @param {function} scanner 字段加密模块
+ * @param {boolean} isTop 是否顶层指令
+ * @param {object} cmd 单个指令
+ * @param {object} parent 当前指令的父对象
+ * @param {object} root 数据存储根目录
+ * @param {array} logs 日志
+ * @param {object} user 当前用户身份信息
+ * @param {array} commands 指令集
+ * @param {integer} level 缩进层次
+ */
 async function executeCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,user,commands) {
     // 查询类指令
     let result = null
@@ -481,6 +558,21 @@ async function executeCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,us
     }
 }
 
+/**
+ * 拼组 where 查询条件
+ * @param {object} cmd 单个指令
+ * @param {object} parent 当前指令的父对象
+ * @param {object} root 数据存储根目录
+ * @param {object} knex knex实例
+ * @param {object} trx 事务对象
+ * @param {function} doorman 权限控制模块
+ * @param {function} scanner 字段加密模块
+ * @param {boolean} isTop 是否顶层指令
+ * @param {array} logs 日志
+ * @param {object} user 当前用户身份信息
+ * @param {array} commands 指令集
+ * @param {integer} level 缩进层次
+ */
 async function getWhereFunc(cmd,parent,root,knex,trx,doorman,scanner,isTop,logs,user,commands,level) {
     if (_.isUndefined(cmd.query.where)) return null
     if (Object.prototype.toString(cmd.query.where) === '[object Object]' && Object.keys(cmd.query.where).length === 0) return null
@@ -496,6 +588,23 @@ async function getWhereFunc(cmd,parent,root,knex,trx,doorman,scanner,isTop,logs,
     }
 }
 
+/**
+ * 拼组 where 分组查询条件
+ * @param {object} obj 分组条件
+ * @param {object} type 分组类别
+ * @param {object} cmd 单个指令
+ * @param {object} parent 当前指令的父对象
+ * @param {object} root 数据存储根目录
+ * @param {object} knex knex实例
+ * @param {object} trx 事务对象
+ * @param {function} doorman 权限控制模块
+ * @param {function} scanner 字段加密模块
+ * @param {boolean} isTop 是否顶层指令
+ * @param {array} logs 日志
+ * @param {object} user 当前用户身份信息
+ * @param {array} commands 指令集
+ * @param {integer} level 缩进层次
+ */
 async function getSubConditionFunc(obj,type,cmd,parent,root,knex,trx,doorman,scanner,isTop,logs,user,commands,level) {
     if (Object.prototype.toString.call(obj) !== '[object Object]') $throwError('where 子查询条件不正确，$' + type + ' 的值必须是 Object 类型',null,{},'WhereDefError')
     let keys = Object.keys(obj)
@@ -699,6 +808,21 @@ async function getSubConditionFunc(obj,type,cmd,parent,root,knex,trx,doorman,sca
     return funcDefine
 }
 
+/**
+ * 前置条件是否成立
+ * @param {object} cmd 单个指令
+ * @param {object} parent 当前指令的父对象
+ * @param {object} root 数据存储根目录
+ * @param {object} knex knex实例
+ * @param {object} trx 事务对象
+ * @param {function} doorman 权限控制模块
+ * @param {function} scanner 字段加密模块
+ * @param {boolean} isTop 是否顶层指令
+ * @param {array} logs 日志
+ * @param {object} user 当前用户身份信息
+ * @param {array} commands 指令集
+ * @param {integer} level 缩进层次
+ */
 async function checkOnlyIf(cmd,parent,root,knex,trx,doorman,scanner,isTop,logs,user,commands,level) {
     try {
         // console.log('checkOnlyIf',cmd.name)

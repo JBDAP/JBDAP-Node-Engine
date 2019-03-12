@@ -7,8 +7,8 @@
 if (!global.NiceError) require('./global')
 
 // 引入相关模块
-const parser = require('./parser')
-const calculator = require('./calculator')
+import parser from './parser'
+import calculator from './calculator'
 
 /**
  * 从原始数据中过滤出需要的数据字段并返回

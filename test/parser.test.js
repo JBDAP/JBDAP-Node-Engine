@@ -126,7 +126,7 @@ test('测试 parseFields 方法', () => {
 test('测试 parseDataString 方法', () => {
     // 测试前提，传入参数已经通过类型验证，只能是非空字符串
     // 缺少:
-    input = 'id'
+    let input = 'id'
     try {
         parser.parseDataString(input)
     }

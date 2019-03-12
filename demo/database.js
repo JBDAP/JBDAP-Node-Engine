@@ -2,7 +2,7 @@
  * 初始化测试数据库
  */
 
-if (!global.NiceError) require('../src/global')
+if (!global.NiceError) require('../lib/global')
 
 // 获得对 knex 实例的引用
 const knex = require('knex')({
@@ -12,12 +12,6 @@ const knex = require('knex')({
     },
     useNullAsDefault: true,
     asyncStackTraces: true,
-    pool: {
-        afterCreate: function (conn, done) {
-            // console.log('数据库连接成功')
-            done(null, conn)
-        }
-    },
     debug: false
 })
 
