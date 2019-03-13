@@ -2,9 +2,6 @@
  * JBDAP-node-wrap 入口
  */
 
-// 使用 babel 打包时需要用到 polyfill
-import '@babel/polyfill'
-
 // 引入开发糖
 if (!global.NiceError) require('./global')
 
@@ -96,60 +93,6 @@ function setServerName(name) {
     global.$dbServer = name
 }
 module.exports.setServerName = setServerName
-
-/**
- * 根据 token 获取用户 id、角色、授权
- * @param {object} knex 数据库实例
- * @param {string} token 要查询的 token
- */
-// async function getCurrentUser(knex,token) {
-//     let condition = {}
-//     let result = {
-//         id: 0,
-//         role: 'default',
-//         authority: null
-//     }
-//     // 如果 token 为 undefined 或者空字符串，则返回默认角色，即 'default' role
-//     if (_.isUndefined(token) || (_.isString(token) && token === '')) {
-//         condition = {
-//             name: 'default'
-//         }
-//     }
-//     else {
-//         // 读取 token 记录
-//         let tokenInfo = await $exec(knex('JBDAP_Token').select(['userId','roleId','expiresAt']).where({
-//             token: token
-//         }))
-//         if (tokenInfo.error) $throwError('查询 token 信息失败',tokenInfo.error,{},'DBQueryError')
-//         if (tokenInfo.data === null) $throwError('找不到 token 记录',null,{
-//             token: token
-//         },'TokenError')
-//         if (tokenInfo.data.length !== 1) {
-//             $throwError('无法正确读取 token 信息',tokenInfo.error,{
-//                 count: tokenInfo.data.length
-//             },'DBQueryError')
-//         }
-//         else {
-//             condition = {
-//                 id: tokenInfo.data[0].roleId
-//             }
-//             result.id = tokenInfo.data[0].userId
-//         }
-//     }
-//     // 查询角色信息
-//     let roleInfo = await $exec(knex.select(['name','authority']).from('JBDAP_Role').where(condition))
-//     if (roleInfo.error) $throwError('查询默认角色权限失败',roleInfo.error,{},'DBQueryError')
-//     if (roleInfo.data.length === 1) {
-//         // 查询成功
-//         result.role = roleInfo.data[0].name
-//         result.authority = roleInfo.data[0].authority
-//     }
-//     else $throwError('无法正确读取默认角色权限',roleInfo.error,{
-//         count: roleInfo.data.length
-//     },'DBQueryError')
-//     return result
-// }
-// module.exports.getCurrentUser = getCurrentUser
 
 /**
  * 开始执行指令
@@ -256,10 +199,35 @@ async function handleCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,use
             if (cmd.target.indexOf('JBDAP_') === 0) $throwError('没有权限执行当前指令 "' + cmd.name + '"',null,{},'JBDAPAuthError')
             // 调用自定义权限控制函数进行检查
             if (_.isFunction(doorman)) {
-                if (doorman(user,cmd) === false) {
-                    // logs.push('* 没有权限！终止 JBDAP 任务')
-                    $throwError('没有权限执行当前指令 "' + cmd.name + '"',null,{},'JBDAPAuthError')
+                let data = null
+                // 删和改操作需要对目标数据进行预校验
+                let operations = [
+                    'update',
+                    'delete',
+                    'increase',
+                    'decrease'
+                ]
+                if (operations.indexOf(cmd.type) >= 0) {
+                    // 将当前 cmd 改为 values 查询获取包含所有 id 的数组
+                    let qCmd = _.cloneDeep(cmd)
+                    qCmd.type = 'values'
+                    // 只查询 id 字段
+                    qCmd.fields = ['pick#id=>ids']
+                    delete qCmd.data
+                    data = (await queryCmd(knex,trx,doorman,scanner,false,qCmd,parent,root,logs,user,commands,level)).ids
+                    // console.log(data)
                 }
+                if (cmd.type === 'create') data = cmd.data
+                // 传给检验函数
+                let authorized = true
+                try {
+                    authorized = await doorman(user,cmd,data)
+                }
+                catch (err) {
+                    // logs.push('* 没有权限！终止 JBDAP 任务')
+                    $throwError('没有权限执行当前指令 "' + cmd.name + '"',err,{},'JBDAPAuthError')
+                }
+                if (authorized === false) $throwError('没有权限执行当前指令 "' + cmd.name + '"',null,{},'JBDAPAuthError')
             }
         }
         // 4、对指令进行分类执行

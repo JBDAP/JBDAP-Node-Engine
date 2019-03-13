@@ -1,5 +1,11 @@
 # JBDAP-Node-Wrap 概览
 
+## **[English Version](https://github.com/JBDAP/JBDAP-Node-Wrap/blob/master/README.md)**
+
+<div id="nav" style="width:100%;height:1px;border:none;"></div>
+
+### 目录导航
+
 <div style="width:100%;height:20px;border:none;"></div>
 
 ## 一、这到底是个啥？

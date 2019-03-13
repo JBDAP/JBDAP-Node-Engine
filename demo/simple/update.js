@@ -3,6 +3,7 @@ const recognizer = require('../recognizer')
 const doorman = require('../doorman')
 const scanner = require('../scanner')
 const JBDAP = require('../../lib/JBDAP')
+
 JBDAP.setServerName('sqlite')
 
 let json = {
