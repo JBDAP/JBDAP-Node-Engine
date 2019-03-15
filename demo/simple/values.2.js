@@ -17,10 +17,6 @@ let json = {
                 order: 'id#desc'
             },
             fields: [
-                'count#id=>totalBlogs',
-                'sum#hearts=>totalHearts',
-                'max#hearts=>maxViews',
-                'avg#hearts=>avgHearts',
                 'first#title=>latestTitle',
                 'pick#id=>blogIds',
                 'clone#id,title,content,hearts=>List'

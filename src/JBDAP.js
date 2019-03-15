@@ -357,8 +357,18 @@ async function queryCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,user
             let query = knex.from(cmd.target)
             if (trx !== null) query = trx(cmd.target)
             // 2、设定要查询的原始字段
-            if (rawFields === '*') query = query.select()
-            else query = query.column(rawFields).select()
+            // 能够使用 sql 函数的计算类型
+            let toolingTypes = [
+                'first',
+                'pick',
+                'clone',
+            ]
+            // values 计算存在不能使用 sql 函数得到结果的查询时，就必须查出所有数据
+            let needList = _.findIndex(valuesFields, (item) => { return toolingTypes.indexOf(item.operator) >= 0 }) >= 0
+            if (cmd.type !== 'values' || (cmd.type === 'values' && needList)) {
+                if (rawFields === '*') query = query.select()
+                else query = query.column(rawFields).select()
+            }
             // 3、是否有定义查询规则
             if (!_.isUndefined(cmd.query)) {
                 // 3.1、解析 where
@@ -376,8 +386,24 @@ async function queryCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,user
                 if (pas.offset > 0) query = query.offset(pas.offset)
             }
             // 4、执行查询
-            console.log('sql:',query.toString())
-            result = await query
+            // 只用 sql 函数就可以实现的 values 查询
+            if (cmd.type === 'values' && needList === false) {
+                if (valuesFields.length === 0) $throwError('values 查询类型至少要定义一个取值字段',null,{},'CmdDefError')
+                for (let i=0; i<valuesFields.length; i++) {
+                    // 传入查询结果进行处理
+                    let item = valuesFields[i]
+                    let slices = item.fields.split(',')
+                    if (slices.length > 1) $throwError(item.operator + ' 运算只接受一个字段',null,{},'FieldsDefError')
+                    query = eval(`query.${item.operator}({ ${item.name}: '${slices[0]}' })`)
+                }
+                console.log('sql:',query.toString())
+                let list = await query
+                result = list[0]
+            }
+            else {
+                console.log('sql:',query.toString())
+                result = await query
+            }
             // console.log('result',result)
             // 5、敏感字段过滤
             // logs.push('$ 屏蔽 "' + cmd.name + '" 的敏感字段')
@@ -386,7 +412,7 @@ async function queryCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,user
                 if (_.isFunction(scanner)) result = scanner(user,cmd,fields,result)
             }
             // 6、如果是 values 取值查询，则执行相应的数据处理
-            if (cmd.type === 'values') {
+            if (cmd.type === 'values' && needList === true) {
                 if (valuesFields.length === 0) $throwError('values 查询类型至少要定义一个取值字段',null,{},'CmdDefError')
                 let values = {}
                 for (let i=0; i<valuesFields.length; i++) {

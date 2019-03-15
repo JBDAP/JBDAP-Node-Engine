@@ -15,7 +15,7 @@ if (!global.NiceError) require('../lib/global')
 async function check(user,cmd,data) {
     // 这里根据 cmd 的类型和参数结合 user 信息进行判断
     // TODO:
-    console.log('data',data)
+    // console.log('data',data)
     return true
 }
 
