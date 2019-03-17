@@ -20,19 +20,16 @@ import '@babel/polyfill'
  */
 import NiceError from './NiceError'
 global.NiceError = NiceError
-// 返回一个NiceError对象
-global.$newError = function(message,cause,info,name){
-    return new NiceError(
-        message,
-        {
-            cause: cause,
-            info: info,
-            name: name
-        }
-    );
-}
 // 创建NiceError对象并抛出
-global.$throwError = function(message,cause,info,name){
+global.$throwErrorInLanguage = function(name,cause,info,dict,lang){
+    let message = ''
+    for(let i=0; i<dict.length; i++) {
+        let item = dict[i]
+        if (item[0] === lang) {
+            message = item[1]
+            break
+        }
+    }
     throw new NiceError(
         message,
         {
@@ -40,8 +37,8 @@ global.$throwError = function(message,cause,info,name){
             info: info,
             name: name
         }
-    );
-};
+    )
+}
 
 // 用于封装 Promise 的返回结果
 // 成功的话 error 为 null

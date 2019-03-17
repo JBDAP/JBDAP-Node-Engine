@@ -21,7 +21,7 @@ NiceError.prototype.fullMessage = function(){
         return result
     }
     return _getCauseMessage(this)
-};
+}
 NiceError.prototype.fullStack = function(){
     function _getFullStack(ne,first){
         // 递归获取子错误的stack然后倒序拼组起来
@@ -36,7 +36,7 @@ NiceError.prototype.fullStack = function(){
         return result
     }
     return _getFullStack(this,true)
-};
+}
 NiceError.prototype.fullInfo = function(){
     function _getFullInfo(ne){
         // 递归获取子错误的信息然后合并
@@ -46,6 +46,6 @@ NiceError.prototype.fullInfo = function(){
         return result
     }
     return _getFullInfo(this)
-};
+}
 
 module.exports = NiceError

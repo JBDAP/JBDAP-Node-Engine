@@ -44,12 +44,18 @@ function parseFields(fields) {
                     hasStar = true
                 }
                 else {
-                    if (hasStar) $throwError('field "' + item + '" 定义有误，前面已经有 * 就不能再定义其它字段名',null,{},'FieldsDefError')
+                    if (hasStar) $throwError('FieldsDefError',null,null,[
+                        ['zh-cn',`字段 '${item}' 定义有误，前面已经有 * 就不能再定义其它字段名`],
+                        ['en-us',`Invalid field '${item}' definition，no more fields can be defined after a '*'`]
+                    ])
                     // 用 => 解析别名
                     let slices = item.split('=>')
                     if (slices.length === 1) rawFields.push(item)
                     else if (slices.length === 2) {
-                        if (slices[0] === '' || slices[1] === '') $throwError('field "' + item + '" 定义有误，=> 前后都不能为空字符串',null,{},'FieldsDefError')
+                        if (slices[0] === '' || slices[1] === '') $throwError('FieldsDefError',null,null,[
+                            ['zh-cn',`字段 '${item}' 定义有误，'=>' 两侧都不能是空字符串`],
+                            ['en-us',`Invalid field '${item}' definition，empty String is not allowed in both left and right sides around '=>'`]
+                        ])
                         // 用 # 解析 values 的计算符
                         let pieces = slices[0].split('#')
                         if (pieces.length === 1) {
@@ -59,7 +65,10 @@ function parseFields(fields) {
                             rawFields.push(temp)
                         }
                         else if (pieces.length === 2) {
-                            if (pieces[0] === '' || pieces[1] === '') $throwError('field "' + item + '" 定义有误，# 前后都不能为空字符串',null,{},'FieldsDefError')
+                            if (pieces[0] === '' || pieces[1] === '') $throwError('FieldsDefError',null,null,[
+                                ['zh-cn',`字段 '${item}' 定义有误，'#' 两侧都不能是空字符串`],
+                                ['en-us',`Invalid field '${item}' definition，empty String is not allowed in both left and right sides around '#'`]
+                            ])
                             // 对 values 运算符解析
                             let temp = {
                                 name: slices[1],
@@ -68,18 +77,30 @@ function parseFields(fields) {
                             }
                             values.push(temp)
                         }
-                        else $throwError('field "' + item + '" 定义有误，有多于1个 # 符号',null,{},'FieldsDefError')
+                        else $throwError('FieldsDefError',null,null,[
+                            ['zh-cn',`字段 '${item}' 定义有误，有多于1个 '#' 符号`],
+                            ['en-us',`Invalid field '${item}' definition，having more than one '#' is not allowed`]
+                        ])
                     }
-                    else $throwError('field "' + item + '" 定义有误，有多于1个 => 符号',null,{},'FieldsDefError')
+                    else $throwError('FieldsDefError',null,null,[
+                        ['zh-cn',`字段 '${item}' 定义有误，有多于1个 '=>' 符号`],
+                        ['en-us',`Invalid field '${item}' definition，having more than one '=>' is not allowed`]
+                    ])
                 } 
             }
             else if (Object.prototype.toString.call(item) === '[object Object]') {
                 cascadedFields.push(item)
             }
-            else $throwError('fields 数组元素必须是 String 或者 Object',null,{},'FieldsDefError')
+            else $throwError('FieldsDefError',null,null,[
+                ['zh-cn',`'fields' 数组元素必须是 String 或者 Object`],
+                ['en-us',`Each element in 'fields' must be a String or an Object`]
+            ])
         })
         // 检查是否 * 与其它字段并存于原始字段定义里
-        if (rawFields.indexOf('*') >= 0 && rawFields.length > 1) $throwError('请检查 fields 定义，* 不能与其它字段定义同时出现',null,{},'FieldsDefError')
+        if (rawFields.indexOf('*') >= 0 && rawFields.length > 1) $throwError('FieldsDefError',null,null,[
+            ['zh-cn',`请检查 'fields' 定义，* 不能与其它字段定义同时出现`],
+            ['en-us',`Please check the 'fields' property, once you have a '*', other fields are not allowed to exist`]
+        ])
         if (rawFields.indexOf('*') >= 0 && rawFields.length === 1) rawFields = '*'
         return {
             raw: rawFields,
@@ -88,7 +109,10 @@ function parseFields(fields) {
         }
     }
     catch (err) {
-        $throwError('解析 fields 出错',err,{},'FieldsPaserError')
+        $throwError('FieldsPaserError',err,null,[
+            ['zh-cn',`解析 fields 出错`],
+            ['en-us',`Error occurred while parsing 'fields' property`]
+        ])
     }
 }
 module.exports.parseFields = parseFields
@@ -100,17 +124,35 @@ module.exports.parseFields = parseFields
 function parseDataString(input) {
     try {
         let slices = input.split(':')
-        if (input.indexOf(' ') >= 0) $throwError('data 表达式 "' + input + '" 不能含有空格',null,{},'DataDefError')
-        if (slices.length !== 2) $throwError('data 表达式 "' + input + '" 定义错误，必须且只能有一个 ":" 字符',null,{},'DataDefError')
-        if (slices[0] === '' || slices[1] === '') $throwError('data 表达式 "' + input + '" 定义错误，":" 前后均不能为空',null,{},'DataDefError')
-        if (parseFloat(slices[1]) === NaN) $throwError('data 表达式 "' + input + '" 定义错误，"' + slices[1] + '" 不是有效数字',null,{},'DataDefError')
-        if (parseFloat(slices[1]) < 0) $throwError('data 表达式 "' + input + '" 定义错误，"' + slices[1] + '" 不能小于 0',null,{},'DataValueError')
+        if (input.indexOf(' ') >= 0) $throwError('DataDefError',null,null,[
+            ['zh-cn',`表达式 '${input}' 不能含有空格`],
+            ['en-us',`Spaces are not allowed in expression '${input}'`]
+        ])
+        if (slices.length !== 2) $throwError('DataDefError',null,null,[
+            ['zh-cn',`表达式 '${input}' 定义有误，必须且只能有一个 ':' 字符`],
+            ['en-us',`Expression '${input}' is invalid, it must and can only have one ':'`]
+        ])
+        if (slices[0] === '' || slices[1] === '') $throwError('DataDefError',null,null,[
+            ['zh-cn',`表达式 '${input}' 定义有误，':' 两侧都不能是空字符串`],
+            ['en-us',`Expression '${input}' is invalid，empty String is not allowed in both left and right sides around ':'`]
+        ])
+        if (parseFloat(slices[1]) === NaN) $throwError('DataValueInvalidError',null,null,[
+            ['zh-cn',`表达式 '${input}' 定义有误，'${slices[1]}' 不是有效数字`],
+            ['en-us',`Expression '${input}' is invalid, '${slices[1]}' is not a number`]
+        ])
+        if (parseFloat(slices[1]) <= 0) $throwError('DataValueInvalidError',null,null,[
+            ['zh-cn',`表达式 '${input}' 定义有误，'${slices[1]}' 不能小于等于 0`],
+            ['en-us',`Expression '${input}' is invalid, '${slices[1]}' must be a positive number or 0`]
+        ])
         let temp = {}
         temp[slices[0]] = parseFloat(slices[1])
         return temp
     }
     catch (err) {
-        $throwError('解析 data 出错',err,{},'DataPaserError')
+        $throwError('DataPaserError',err,null,[
+            ['zh-cn',`解析 data 出错`],
+            ['en-us',`Error occurred while parsing 'data' property`]
+        ])
     }
 }
 module.exports.parseDataString = parseDataString
@@ -136,7 +178,10 @@ function parseOrder(order) {
         if (_.isArray(order)) {
             let result = []
             for (let i=0; i<order.length; i++) {
-                if (!_.isString(order[i])) $throwError('order 定义出错，order 数组下标为 ' + i + ' 的元素不是 String 类型',null,{},'OrderDefError')
+                if (!_.isString(order[i])) $throwError('OrderDefError',null,null,[
+                    ['zh-cn',`下标为 ${i} 的元素不是 String 类型`],
+                    ['en-us',`The element with index ${i} is not a String`]
+                ])
                 let slices = order[i].split('#')
                 if (slices.length === 1) {
                     result.push({
@@ -145,19 +190,28 @@ function parseOrder(order) {
                     })
                 }
                 else if (slices.length === 2) {
-                    if (slices[0] === '' || slices[1] === '') $throwError('order 定义出错 "' + order[i] + '"',null,{},'OrderDefError')
+                    if (slices[0] === '' || slices[1] === '') $throwError('OrderDefError',null,null,[
+                        ['zh-cn',`'${order[i]}' 定义有误，'#' 符号两侧均不能为空字符串`],
+                        ['en-us',`'${order[i]}' is invalid，empty String is not allowed in both left and right sides around '#'`]
+                    ])
                     result.push({
                         column: slices[0],
                         order: slices[1]
                     })
                 }
-                else $throwError('order 定义出错，"' + order[i] + '" 有多于1个 #',null,{},'OrderDefError') 
+                else $throwError('OrderDefError',null,null,[
+                    ['zh-cn',`'${order[i]}' 定义有误，有多于1个 '#' 符号`],
+                    ['en-us',`'${order[i]}' is invalid，having more than one '#' is not allowed`]
+                ])
             }
             return result
         }
     }
     catch (err) {
-        $throwError('解析 order 出错',err,{},'OrderPaserError')
+        $throwError('OrderPaserError',err,null,[
+            ['zh-cn',`解析 order 出错`],
+            ['en-us',`Error occurred while parsing 'order' property`]
+        ])
     }
 }
 module.exports.parseOrder = parseOrder
@@ -182,7 +236,10 @@ function parseOffsetAndLimit(page,size) {
         }
         // 只定义了 page 未定义 size
         if (!_.isUndefined(page) && _.isUndefined(size)) {
-            $throwError('size 定义出错，如果定义了 page，也必须定义 size',null,{},'SizeDefError')
+            $throwError('SizeDefError',null,null,[
+                ['zh-cn',`如果定义了 'page'，也必须定义 'size'`],
+                ['en-us',`If you have defined a 'page', one 'size' definition is required too`]
+            ])
         }
         // 两个都有定义
         if (!_.isUndefined(size) && !_.isUndefined(page)) {
@@ -192,7 +249,10 @@ function parseOffsetAndLimit(page,size) {
         }
     }
     catch (err) {
-        $throwError('解析 page 和 size 出错',err,{},'QueryPaserError')
+        $throwError('QueryPaserError',err,null,[
+            ['zh-cn',`解析 page 和 size 出错`],
+            ['en-us',`Error occurred while parsing 'page' and 'size'`]
+        ])
     }
 }
 module.exports.parseOffsetAndLimit = parseOffsetAndLimit
@@ -217,16 +277,25 @@ function parseComparision(key,value) {
             comparision.right = value
         }
         if (pieces.length === 2) {
-            if (pieces[0] === '' || pieces[1] === '') $throwError('运算条件 "' + key +'" 定义错误',null,{},'OpDefError')
+            if (pieces[0] === '' || pieces[1] === '') $throwError('OpDefError',null,null,[
+                ['zh-cn',`'${key}' 定义有误，'#' 符号两侧均不能为空字符串`],
+                ['en-us',`'${key}' is invalid，empty String is not allowed in both left and right sides around '#'`]
+            ])
             comparision.left = pieces[0]
             comparision.operator = pieces[1]
             comparision.right = value
         }
-        if (pieces.length > 2) $throwError('运算条件 "' + key +'" 定义错误',null,{},'OpDefError')
+        if (pieces.length > 2) $throwError('OpDefError',null,null,[
+            ['zh-cn',`'${key}' 定义有误，有多于1个 '#' 符号`],
+            ['en-us',`'${key}' is invalid，having more than one '#' is not allowed`]
+        ])
         return comparision
     }
     catch (err) {
-        $throwError('单个比较运算条件解析失败',err,{},'JBDAPComparisionError')
+        $throwError('ComparisionParserError',err,null,[
+            ['zh-cn',`单个比较运算条件解析失败`],
+            ['en-us',`Error occurred while parsing single comparision`]
+        ])
     }
 }
 module.exports.parseComparision = parseComparision

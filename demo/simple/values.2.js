@@ -5,6 +5,7 @@ const scanner = require('../scanner')
 const JBDAP = require('../../lib/JBDAP')
 
 let json = {
+    needLogs: true,
     commands: [
         {
             name: 'blogStat',
@@ -17,7 +18,7 @@ let json = {
                 order: 'id#desc'
             },
             fields: [
-                'first#title=>latestTitle',
+                'first#titles=>latestTitle',
                 'pick#id=>blogIds',
                 'clone#id,title,content,hearts=>List'
             ]
@@ -25,7 +26,15 @@ let json = {
     ]
 }
 
-JBDAP.manipulate(knex,recognizer,doorman,scanner,json).then((res) => {
+let config = {
+    serverName: 'sqlite',
+    language: 'zh-cn',
+    recognizer: recognizer,
+    doorman: doorman,
+    scanner: scanner
+}
+
+JBDAP.manipulate(knex,json,config).then((res) => {
     console.log(JSON.stringify(res,null,4))
     process.exit()
 }).catch((err) => {

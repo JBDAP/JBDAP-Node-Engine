@@ -1,5 +1,7 @@
 const validator = require('../src/validator')
 
+global.$i18nLanguage = 'zh-cn'
+
 test('测试 checkJson 方法', () => {
     // 整个参数不对
     let json = []
@@ -8,7 +10,7 @@ test('测试 checkJson 方法', () => {
     }
     catch (err) {
         expect(err.name).toBe('ParamTypeError')
-        expect(err.fullMessage()).toMatch(/传入的参数必须是 Object 类型/)
+        expect(err.fullMessage()).toMatch(/传入的 JSON 必须是 Object 类型/)
     }
     // 缺 commands
     json = {}
@@ -38,7 +40,7 @@ test('测试 checkJson 方法', () => {
         validator.checkJson(json)
     }
     catch (err) {
-        expect(err.name).toBe('PropValueError')
+        expect(err.name).toBe('PropEmptyError')
         expect(err.fullMessage()).toMatch(/commands/)
     }
     // security 类型不对
@@ -102,7 +104,7 @@ test('测试 checkCommand 方法', () => {
     }
     catch (err) {
         expect(err.name).toBe('ParamTypeError')
-        expect(err.fullMessage()).toMatch(/传入的 command 参数必须是 Object 类型/)
+        expect(err.fullMessage()).toMatch(/传入的 'command' 参数必须是 Object 类型/)
     }
     // 缺 name
     json = {}
@@ -121,7 +123,7 @@ test('测试 checkCommand 方法', () => {
         validator.checkCommand(json)
     }
     catch (err) {
-        expect(err.name).toBe('PropValueError')
+        expect(err.name).toBe('PropEmptyError')
         expect(err.fullMessage()).toMatch(/name/)
     }
     // 缺 type
@@ -144,7 +146,7 @@ test('测试 checkCommand 方法', () => {
         validator.checkCommand(json)
     }
     catch (err) {
-        expect(err.name).toBe('PropValueError')
+        expect(err.name).toBe('PropValueInvalidError')
         expect(err.fullMessage()).toMatch(/type/)
     }
     // 缺 target
@@ -243,7 +245,7 @@ test('测试 checkCommand 方法', () => {
         validator.checkCommand(json)
     }
     catch (err) {
-        expect(err.name).toBe('PropValueError')
+        expect(err.name).toBe('PropEmptyError')
         expect(err.fullMessage()).toMatch(/fields/)
     }
     // fields 是 Array 时不能为空
@@ -259,7 +261,7 @@ test('测试 checkCommand 方法', () => {
         validator.checkCommand(json)
     }
     catch (err) {
-        expect(err.name).toBe('PropValueError')
+        expect(err.name).toBe('PropEmptyError')
         expect(err.fullMessage()).toMatch(/fields/)
     }
     // data 多余
@@ -334,7 +336,7 @@ test('测试 checkCommand 方法', () => {
         validator.checkCommand(json)
     }
     catch (err) {
-        expect(err.name).toBe('PropValueError')
+        expect(err.name).toBe('PropEmptyError')
         expect(err.fullMessage()).toMatch(/data/)
     }
     // data 类型不对
@@ -402,7 +404,7 @@ test('测试 checkTopCommand 方法', () => {
     }
     catch (err) {
         expect(err.name).toBe('ParamTypeError')
-        expect(err.fullMessage()).toMatch(/传入的 command 参数必须是 Object 类型/)
+        expect(err.fullMessage()).toMatch(/传入的 'command' 参数必须是 Object 类型/)
     }
     // return 类型不对
     json = {
@@ -459,7 +461,7 @@ test('测试 checkQuery 方法', () => {
     }
     catch (err) {
         expect(err.name).toBe('ParamTypeError')
-        expect(err.fullMessage()).toMatch(/传入的 query 参数必须是 Object 类型/)
+        expect(err.fullMessage()).toMatch(/传入的 'query' 参数必须是 Object 类型/)
     }
     // where 类型不对
     json = {
@@ -494,7 +496,7 @@ test('测试 checkQuery 方法', () => {
         validator.checkQuery(json)
     }
     catch (err) {
-        expect(err.name).toBe('PropValueError')
+        expect(err.name).toBe('PropEmptyError')
         expect(err.fullMessage()).toMatch(/order/)
     }
     // group 类型不对
@@ -520,7 +522,7 @@ test('测试 checkQuery 方法', () => {
         validator.checkQuery(json)
     }
     catch (err) {
-        expect(err.name).toBe('PropValueError')
+        expect(err.name).toBe('PropEmptyError')
         expect(err.fullMessage()).toMatch(/group/)
     }
     // size 类型错误
@@ -548,7 +550,7 @@ test('测试 checkQuery 方法', () => {
         validator.checkQuery(json)
     }
     catch (err) {
-        expect(err.name).toBe('PropValueError')
+        expect(err.name).toBe('PropValueInvalidError')
         expect(err.fullMessage()).toMatch(/size/)
     }
     // page 类型错误
@@ -578,7 +580,7 @@ test('测试 checkQuery 方法', () => {
         validator.checkQuery(json)
     }
     catch (err) {
-        expect(err.name).toBe('PropValueError')
+        expect(err.name).toBe('PropValueInvalidError')
         expect(err.fullMessage()).toMatch(/page/)
     }
     // page 存在则 size 必须也在
@@ -617,7 +619,7 @@ test('测试 checkAfter 方法', () => {
     }
     catch (err) {
         expect(err.name).toBe('ParamTypeError')
-        expect(err.fullMessage()).toMatch(/传入的 after 参数必须是 Object 或者 Array 类型/)
+        expect(err.fullMessage()).toMatch(/属性 'after' 必须是 Object 或者 Array 类型/)
     }
     // 传入 undefined
     expect(validator.checkAfter({})).toEqual(true)
@@ -630,7 +632,7 @@ test('测试 checkData 方法', () => {
     }
     catch (err) {
         expect(err.name).toBe('ParamMissingError')
-        expect(err.fullMessage()).toMatch(/data 参数必须要定义/)
+        expect(err.fullMessage()).toMatch(/属性 'data' 必须要定义/)
     }
     // 类型不对
     let json = 123
@@ -638,8 +640,8 @@ test('测试 checkData 方法', () => {
         validator.checkData('create',json)
     }
     catch (err) {
-        expect(err.name).toBe('ParamTypeError')
-        expect(err.fullMessage()).toMatch(/data 参数必须是 Object 或者 Array 类型/)
+        expect(err.name).toBe('PropTypeError')
+        expect(err.fullMessage()).toMatch(/属性 'data' 必须是 Object 或者 Array 类型/)
     }
     // create 指令
     // 空对象
@@ -648,31 +650,31 @@ test('测试 checkData 方法', () => {
         validator.checkData('create',json)
     }
     catch (err) {
-        expect(err.name).toBe('ParamEmptyError')
-        expect(err.fullMessage()).toMatch(/data 对象不能为空/)
+        expect(err.name).toBe('PropEmptyError')
+        expect(err.fullMessage()).toMatch(/属性 'data' 不能为空对象/)
     }
     json = []
     try {
         validator.checkData('create',json)
     }
     catch (err) {
-        expect(err.name).toBe('ParamEmptyError')
-        expect(err.fullMessage()).toMatch(/data 数组不能为空/)
+        expect(err.name).toBe('PropEmptyError')
+        expect(err.fullMessage()).toMatch(/属性 'data' 不能为空数组/)
     }
     try {
         validator.checkData('update',json)
     }
     catch (err) {
-        expect(err.name).toBe('ParamTypeError')
-        expect(err.fullMessage()).toMatch(/参数必须是 Object 类型/)
+        expect(err.name).toBe('PropTypeError')
+        expect(err.fullMessage()).toMatch(/属性 'data' 必须是 Object 类型/)
     }
     json = ''
     try {
         validator.checkData('increase',json)
     }
     catch (err) {
-        expect(err.name).toBe('ParamEmptyError')
-        expect(err.fullMessage()).toMatch(/data 字符串不能为空/)
+        expect(err.name).toBe('PropEmptyError')
+        expect(err.fullMessage()).toMatch(/属性 'data' 不能为空字符串/)
     }
     // delete 不能有 data
     json = {
@@ -682,8 +684,8 @@ test('测试 checkData 方法', () => {
         validator.checkData('delete',json)
     }
     catch (err) {
-        expect(err.name).toBe('ParamDefError')
-        expect(err.fullMessage()).toMatch(/不应该有 data 参数/)
+        expect(err.name).toBe('PropSpilthError')
+        expect(err.fullMessage()).toMatch(/属性 'data' 不应该出现/)
     }
     json = {
         title: '123'

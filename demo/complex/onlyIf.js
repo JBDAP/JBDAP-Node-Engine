@@ -3,7 +3,7 @@ const recognizer = require('../recognizer')
 const doorman = require('../doorman')
 const scanner = require('../scanner')
 const JBDAP = require('../../lib/JBDAP')
-JBDAP.setServerName('sqlite')
+
 
 let json = {
     commands: [
@@ -37,7 +37,15 @@ let json = {
     ]
 }
 
-JBDAP.manipulate(knex,recognizer,doorman,scanner,json).then((res) => {
+let config = {
+    serverName: 'sqlite',
+    language: 'zh-cn',
+    recognizer: recognizer,
+    doorman: doorman,
+    scanner: scanner
+}
+
+JBDAP.manipulate(knex,json,config).then((res) => {
     console.log(JSON.stringify(res,null,4))
     process.exit()
 }).catch((err) => {

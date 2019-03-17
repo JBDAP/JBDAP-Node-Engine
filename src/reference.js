@@ -24,20 +24,29 @@ function getObjFromObj(data,rawFields) {
         _.forEach(rawFields, (item) => {
             // 字段名
             if (_.isString(item)) {
-                if (keys.indexOf(item) < 0) $throwError('原始数据中不存在 "' + item + '" 字段',null,{},'FieldNotExistError')
+                if (keys.indexOf(item) < 0) $throwError('FieldNotExistError',null,null,[
+                    ['zh-cn',`原始数据中不存在 '${item}' 字段`],
+                    ['en-us',`Field '${item}' doesn't exist in raw data`]
+                ])
                 result[item] = data[item]
             }
             // 别名
             if (_.isPlainObject(item)) {
                 let key = Object.keys(item)[0]
-                if (keys.indexOf(item[key]) < 0) $throwError('原始数据中不存在 "' + key + '" 字段',null,{},'FieldNotExistError')
+                if (keys.indexOf(item[key]) < 0) $throwError('FieldNotExistError',null,null,[
+                    ['zh-cn',`原始数据中不存在 '${key}' 字段`],
+                    ['en-us',`Field '${key}' doesn't exist in raw data`]
+                ])
                 result[key] = data[item[key]]
             }
         })
         return result
     }
     catch (err) {
-        $throwError('单个对象属性筛选出错',err,{},'DealRefError')
+        $throwError('DealRefError',err,null,[
+            ['zh-cn',`单个对象属性筛选出错`],
+            ['en-us',`Filtering fields from one Object failed`]
+        ])
     }
 }
 module.exports.getObjFromObj = getObjFromObj
@@ -105,7 +114,10 @@ function getObjFromList(data,query,rawFields,parent,root) {
     }
     catch (err) {
         // console.log(err.fullStack())
-        $throwError('多条记录中筛选目标出错',err,{},'DealRefError')
+        $throwError('DealRefError',err,null,[
+            ['zh-cn',`多条记录中筛选目标出错`],
+            ['en-us',`Selecting one target from multiple records failed`]
+        ])
     }
 }
 module.exports.getObjFromList = getObjFromList
@@ -192,7 +204,10 @@ function getListFromList(data,query,rawFields,parent,root) {
     }
     catch (err) {
         // console.log(err.fullStack())
-        $throwError('多条记录中筛选多条记录出错',err,{},'DealRefError')
+        $throwError('DealRefError',err,null,[
+            ['zh-cn',`多条记录中筛选多条记录出错`],
+            ['en-us',`Selecting several records from multiple records failed`]
+        ])
     }
 }
 module.exports.getListFromList = getListFromList
@@ -204,7 +219,10 @@ module.exports.getListFromList = getListFromList
  */
 function getValuesFromList(data,valuesFields) {
     try {
-        if (valuesFields.length === 0) $throwError('values 查询类型至少要定义一个取值字段',null,{},'CmdDefError')
+        if (valuesFields.length === 0) $throwError('CmdDefError',null,null,[
+            ['zh-cn',`'values' 查询类型至少要定义一个取值字段`],
+            ['en-us',`A 'values' type query needs one value field defined at least`]
+        ])
         let values = {}
         for (let i=0; i<valuesFields.length; i++) {
             // 传入查询结果进行处理
@@ -214,7 +232,10 @@ function getValuesFromList(data,valuesFields) {
         return values
     }
     catch (err) {
-        $throwError('对数组进行取值查询出错',err,{},'DealRefError')
+        $throwError('DealRefError',err,null,[
+            ['zh-cn',`取值查询出错`],
+            ['en-us',`Error occurred in this 'values' type query`]
+        ])
     }
 }
 module.exports.getValuesFromList = getValuesFromList

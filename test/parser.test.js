@@ -1,5 +1,7 @@
 const parser = require('../src/parser')
 
+global.$i18nLanguage = 'zh-cn'
+
 test('测试 parseFields 方法', () => {
     // 测试前提，fields 字段已经通过类型验证，不是字符串就是 object ，且不为空
     // 传入 undefined
@@ -27,7 +29,7 @@ test('测试 parseFields 方法', () => {
     catch (err) {
         expect(err.name).toBe('FieldsPaserError')
         expect(err.fullMessage()).toMatch(/FieldsDefError/)
-        expect(err.fullMessage()).toMatch(/检查 fields 定义/)
+        expect(err.fullMessage()).toMatch(/检查 'fields' 定义/)
     }
     json = ['*','id','createdAt']
     try {
@@ -44,7 +46,7 @@ test('测试 parseFields 方法', () => {
         'createdAt=>ctime'
     ]
     expect(parser.parseFields(json).raw).toEqual(['id', { ctime: 'createdAt' }])
-    // 别名定义错误
+    // 别名定义有误
     json = [
         'id',
         'createdAt=>'
@@ -55,9 +57,9 @@ test('测试 parseFields 方法', () => {
     catch (err) {
         expect(err.name).toBe('FieldsPaserError')
         expect(err.fullMessage()).toMatch(/FieldsDefError/)
-        expect(err.fullMessage()).toMatch(/"createdAt=>"/)
+        expect(err.fullMessage()).toMatch(/'createdAt=>'/)
     }
-    // 别名定义错误
+    // 别名定义有误
     json = [
         'id',
         'createdAt=>ct=>'
@@ -68,7 +70,7 @@ test('测试 parseFields 方法', () => {
     catch (err) {
         expect(err.name).toBe('FieldsPaserError')
         expect(err.fullMessage()).toMatch(/FieldsDefError/)
-        expect(err.fullMessage()).toMatch(/有多于1个 => 符号/)
+        expect(err.fullMessage()).toMatch(/有多于1个 '=>' 符号/)
     }
     // 数组元素有误
     json = [
@@ -133,8 +135,8 @@ test('测试 parseDataString 方法', () => {
     catch (err) {
         expect(err.name).toBe('DataPaserError')
         expect(err.fullMessage()).toMatch(/DataDefError/)
-        expect(err.fullMessage()).toMatch(/必须且只能有一个 ":" 字符/)
-        expect(err.fullMessage()).toMatch(/定义错误/)
+        expect(err.fullMessage()).toMatch(/必须且只能有一个 ':' 字符/)
+        expect(err.fullMessage()).toMatch(/定义有误/)
     }
     // 多:
     input = 'id:123:12'
@@ -144,8 +146,8 @@ test('测试 parseDataString 方法', () => {
     catch (err) {
         expect(err.name).toBe('DataPaserError')
         expect(err.fullMessage()).toMatch(/DataDefError/)
-        expect(err.fullMessage()).toMatch(/必须且只能有一个 ":" 字符/)
-        expect(err.fullMessage()).toMatch(/定义错误/)
+        expect(err.fullMessage()).toMatch(/必须且只能有一个 ':' 字符/)
+        expect(err.fullMessage()).toMatch(/定义有误/)
     }
     // :两边有空白
     input = 'id:'
@@ -155,8 +157,8 @@ test('测试 parseDataString 方法', () => {
     catch (err) {
         expect(err.name).toBe('DataPaserError')
         expect(err.fullMessage()).toMatch(/DataDefError/)
-        expect(err.fullMessage()).toMatch(/定义错误/)
-        expect(err.fullMessage()).toMatch(/":" 前后均不能为空/)
+        expect(err.fullMessage()).toMatch(/定义有误/)
+        expect(err.fullMessage()).toMatch(/':' 两侧都不能是空字符串/)
     }
     // 不能有空格
     input = 'id :123'
@@ -178,18 +180,18 @@ test('测试 parseDataString 方法', () => {
     }
     catch (err) {
         expect(err.name).toBe('DataPaserError')
-        expect(err.fullMessage()).toMatch(/DataDefError/)
+        expect(err.fullMessage()).toMatch(/DataValueInvalidError/)
         expect(err.fullMessage()).toMatch(/不是有效数字/)
     }
-    // 字符串转数字失败
+    // 数字小于0
     input = 'id:-2'
     try {
         parser.parseDataString(input)
     }
     catch (err) {
         expect(err.name).toBe('DataPaserError')
-        expect(err.fullMessage()).toMatch(/DataValueError/)
-        expect(err.fullMessage()).toMatch(/不能小于 0/)
+        expect(err.fullMessage()).toMatch(/DataValueInvalidError/)
+        expect(err.fullMessage()).toMatch(/不能小于等于 0/)
     }
 });
 
@@ -207,7 +209,7 @@ test('测试 parseOrder 方法', () => {
     catch(err) {
         expect(err.name).toBe('OrderPaserError')
         expect(err.fullMessage()).toMatch(/OrderDefError/)
-        expect(err.fullMessage()).toMatch(/定义出错/)
+        expect(err.fullMessage()).toMatch(/定义有误/)
     }
     // 传入字符串有多个 #    
     try {
@@ -236,7 +238,7 @@ test('测试 parseOrder 方法', () => {
     catch(err) {
         expect(err.name).toBe('OrderPaserError')
         expect(err.fullMessage()).toMatch(/OrderDefError/)
-        expect(err.fullMessage()).toMatch(/定义出错/)
+        expect(err.fullMessage()).toMatch(/定义有误/)
     }
     // 传入数组中的 String 元素有多个 #    
     try {
@@ -269,7 +271,7 @@ test('测试 parseOffsetAndLimit 方法', () => {
     catch(err) {
         expect(err.name).toBe('QueryPaserError')
         expect(err.fullMessage()).toMatch(/SizeDefError/)
-        expect(err.fullMessage()).toMatch(/也必须定义 size/)
+        expect(err.fullMessage()).toMatch(/也必须定义 'size'/)
     }
     // 两个都定义
     expect(parser.parseOffsetAndLimit(2,10)).toEqual({
@@ -285,19 +287,19 @@ test('测试 parseComparision 方法', () => {
         parser.parseComparision('id#',1)
     }
     catch (err) {
-        expect(err.name).toBe('JBDAPComparisionError')
+        expect(err.name).toBe('ComparisionParserError')
         expect(err.fullMessage()).toMatch(/OpDefError/)
         expect(err.fullMessage()).toMatch(/运算条件/)
-        expect(err.fullMessage()).toMatch(/定义错误/)
+        expect(err.fullMessage()).toMatch(/定义有误/)
     }
     try {
         parser.parseComparision('id#eq#',1)
     }
     catch (err) {
-        expect(err.name).toBe('JBDAPComparisionError')
+        expect(err.name).toBe('ComparisionParserError')
         expect(err.fullMessage()).toMatch(/OpDefError/)
         expect(err.fullMessage()).toMatch(/id#eq#/)
-        expect(err.fullMessage()).toMatch(/定义错误/)
+        expect(err.fullMessage()).toMatch(/定义有误/)
     }
     // 正确输出
     expect(parser.parseComparision('id',1)).toEqual({

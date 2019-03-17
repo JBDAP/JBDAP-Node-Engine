@@ -1,5 +1,7 @@
 const calculator = require('../src/calculator')
 
+global.$i18nLanguage = 'zh-cn'
+
 test('测试 calculate 方法', () => {
     // 模拟数据
     let parent = {
@@ -190,9 +192,9 @@ test('测试 compare 方法', () => {
         },parent,root,null)
     }
     catch (err) {
-        expect(err.name).toBe('JBDAPCompareError')
-        expect(err.fullMessage()).toMatch(/JBDAPOperatorError/)
-        expect(err.fullMessage()).toMatch(/运算符 "yes" 不存在/)
+        expect(err.name).toBe('CompareError')
+        expect(err.fullMessage()).toMatch(/OperatorDefError/)
+        expect(err.fullMessage()).toMatch(/运算符 'yes' 不存在/)
     }
     // 长路径中途出现不存在的属性
     try {
@@ -204,9 +206,9 @@ test('测试 compare 方法', () => {
     }
     catch (err) {
         // console.log(err.fullMessage())
-        expect(err.name).toBe('JBDAPCompareError')
+        expect(err.name).toBe('CompareError')
         expect(err.fullMessage()).toMatch(/Tag2ValueError/)
-        expect(err.fullMessage()).toMatch(/不存在 "pD" 属性/)
+        expect(err.fullMessage()).toMatch(/不存在 'pD' 属性/)
     }
     // 正常比较
     expect(calculator.compare({
@@ -399,7 +401,7 @@ test('测试 tag2value 方法', () => {
     catch (err) {
         expect(err.name).toBe('Tag2ValueError')
         expect(err.fullMessage()).toMatch(/TagDefError/)
-        expect(err.fullMessage()).toMatch(/不存在 "propDD" 属性/)
+        expect(err.fullMessage()).toMatch(/不存在 'propDD' 属性/)
     }
     // 从非数组抽取数据
     try {
@@ -417,7 +419,7 @@ test('测试 tag2value 方法', () => {
     catch (err) {
         expect(err.name).toBe('Tag2ValueError')
         expect(err.fullMessage()).toMatch(/TagDefError/)
-        expect(err.fullMessage()).toMatch(/不可以继续级联取值/)
+        expect(err.fullMessage()).toMatch(/无法取得一个数组的级联子属性/)
     }
     // 多层子属性抽取定义
     try {

@@ -5,8 +5,19 @@
 // 引入开发糖
 if (!global.NiceError) require('./global')
 
+// 标记运行环境语言
+global.$i18nLang = 'zh-cn'
+
 // 标记数据库类型
 global.$dbServer = 'unknown'
+
+// 标记数据表主键
+global.$primaryKey = 'id'
+
+// 自定义一个 i18n 的错误抛出器
+global.$throwError = function(name,cause,info,dict) {
+    $throwErrorInLanguage(name,cause,info,dict,global.$i18nLang)
+}
 
 // 引入其它模块
 import validator from './validator'
@@ -17,15 +28,17 @@ import reference from './reference'
 /**
  * 解析并执行 json 中的指令
  * @param {object} knex 数据库连接对象
- * @param {function} recognizer 身份识别函数
- * @param {function} doorman 权限校验函数
- * @param {function} scanner 数据扫描器，用于屏蔽敏感字段，不返回给调用者
  * @param {object} json 要执行的 JBDAP 参数
+ * @param {object} configs 配置参数
  */
-async function manipulate(knex,recognizer,doorman,scanner,json) {
+async function manipulate(knex,json,configs) {
+    configs = configs || {}
+    if (_.isString(configs.serverName) && configs.serverName !== '') global.$dbServer = configs.serverName
+    if (_.isString(configs.primaryKey) && configs.primaryKey !== '') global.$primaryKey = configs.primaryKey
+    if (_.isString(configs.language) && configs.language !== '') global.$i18nLang = configs.language
     // 执行完成后返回的结果
     let returnObj = {
-        code: 1,
+        code: 200,
         message: 'ok',
         data: {},
         logs: []
@@ -33,29 +46,47 @@ async function manipulate(knex,recognizer,doorman,scanner,json) {
     // 执行过程日志
     let logs = []
     try {
-        logs.push('- 开启 JBDAP 任务')
+        addLog(logs, [
+            ['zh-cn', '- 开启 JBDAP 任务'],
+            ['en-us', '- JBDAP task begins']
+        ])
         // 1、验证参数是否合法
-        logs.push('- 检查接收到的 JSON 是否合法')
+        addLog(logs, [
+            ['zh-cn', '- 检查接收到的 JSON 是否合法'],
+            ['en-us', '- Check JSON validity']
+        ])
         validator.checkJson(json)
         // 2、取得当前用户用户账号及权限定义
-        logs.push('* 用户身份校验')
+        addLog(logs, [
+            ['zh-cn', '* 识别用户身份'],
+            ['en-us', '* Get user identity']
+        ])
         let user = {}
-        if (_.isFunction(recognizer)) user = await recognizer(json.security || {})
+        if (_.isFunction(configs.recognizer)) user = await configs.recognizer(json.security || {})
         // 3、定义要用到的变量
         // root 用于保存数据的临时空间
         let root = {}
         let commands = json.commands
         if (Object.prototype.toString.call(json.commands) === '[object Object]') commands = [commands]
         // 4、开始执行
-        logs.push('- 开始处理接收到的指令')
-        await proceed(knex,doorman,scanner,commands,json.isTransaction,root,logs,user)
-        logs.push('- 全部指令处理完成')
-        logs.push('- JBDAP 任务成功')
+        addLog(logs, [
+            ['zh-cn', '- 开始处理接收到的指令'],
+            ['en-us', '- Proceed to handle commands']
+        ])
+        await proceed(knex,configs.doorman,configs.scanner,commands,json.isTransaction,root,logs,user)
+        addLog(logs, [
+            ['zh-cn', '- 全部指令处理完成'],
+            ['en-us', '- All commands handled successfully']
+        ])
+        addLog(logs, [
+            ['zh-cn', '- JBDAP 任务成功'],
+            ['en-us', '- JBDAP task succeeded']
+        ])
         // 5、获取结果数据返回
         for (let i=0; i<commands.length; i++) {
             let item = commands[i]
             if (root[item.name].error) {
-                returnObj.code = 0
+                returnObj.code = 500
                 returnObj.message = root[item.name].error
             }
             if (item.return !== false) {
@@ -69,30 +100,33 @@ async function manipulate(knex,recognizer,doorman,scanner,json) {
         return returnObj
     }
     catch (err) {
-        logs.push('- JBDAP 任务失败')
-        returnObj.code = 0
+        addLog(logs, [
+            ['zh-cn', '- JBDAP 任务失败'],
+            ['en-us', '- JBDAP task failed']
+        ])
+        // $throwError('JBDAPTaskError',err,null,[
+        //     ['zh-cn','JBDAP 任务执行失败'],
+        //     ['en-us','JBDAP Task failed']
+        // ])
+        // 根据错误提示来给出错误码
+        returnObj.code = 500
+        let msg = err.fullMessage()
+        // 参数定义错误
+        if (msg.indexOf('DefError]') >= 0 || msg.indexOf('TypeError]') >= 0 || msg.indexOf('MissingError]') >= 0 || msg.indexOf('EmptyError]') >= 0 || msg.indexOf('ValueInvalidError]') >= 0 || msg.indexOf('SpilthError]') >= 0){
+            returnObj.code = 400
+        }
+        // 没有操作权限
+        if (msg.indexOf('[AuthError]') >= 0) returnObj.code = 403
         returnObj.message = err.fullMessage()
         returnObj.data = null
         if (json.needLogs !== true) delete returnObj.logs
         else returnObj.logs = logs
         return returnObj
-        // $throwError('执行 JBDAP 任务出错',err,{},'JBDAPError')
     }
 }
 module.exports.manipulate = manipulate
 import { version } from '../package.json'
 module.exports.version = version
-
-/**
- * 设定当前运行环境的数据库名称
- * 默认为 'unknow'，可以用一个开发团队内部代号，以尽可能少的暴露服务端信息
- * @param {string} name 数据库名称
- */
-function setServerName(name) {
-    // 标记当前数据库为 sqlite
-    global.$dbServer = name
-}
-module.exports.setServerName = setServerName
 
 /**
  * 开始执行指令
@@ -108,7 +142,10 @@ module.exports.setServerName = setServerName
 async function proceed(knex,doorman,scanner,commands,isTrans,root,logs,user) {
     // 检查是否以事务执行
     if (isTrans === true) {
-        logs.push('- 以事务方式执行')
+        addLog(logs, [
+            ['zh-cn', '- 以事务方式执行'],
+            ['en-us', '- Commands will be handled as a transaction']
+        ])
         await knex.transaction(async function(trx) {
             // 这里开始事务
             try {
@@ -118,18 +155,30 @@ async function proceed(knex,doorman,scanner,commands,isTrans,root,logs,user) {
                     // 执行顶层指令
                     await handleCmd(knex,trx,doorman,scanner,true,cmd,null,root,logs,user,commands,1)
                 }
-                logs.push('- 事务执行成功')
+                addLog(logs, [
+                    ['zh-cn', '- 事务执行成功'],
+                    ['en-us', '- Transaction succeeded']
+                ])
                 return true
             }
             catch (err) {
-                logs.push('- 事务失败，数据回滚')
-                $throwError('解析或执行指令失败',err,{},'CmdExecError')
+                addLog(logs, [
+                    ['zh-cn', '- 事务失败，数据回滚'],
+                    ['en-us', '- Transaction failed, data has been rolled back']
+                ])
+                $throwError('TransactionError',err,null,[
+                    ['zh-cn','解析或执行事务失败'],
+                    ['en-us','Proceed transaction failed']
+                ])
             }
         })
     }
     else {
         try {
-            logs.push('- 非事务方式执行')
+            addLog(logs, [
+                ['zh-cn', '- 非事务方式执行'],
+                ['en-us', '- Commands will be handled in non-transaction mode']
+            ])
             // 递归执行 commands 中的指令
             for (let i=0; i<commands.length; i++) {
                 let cmd = commands[i]
@@ -138,7 +187,10 @@ async function proceed(knex,doorman,scanner,commands,isTrans,root,logs,user) {
             }
         }
         catch (err) {
-            $throwError('解析或执行指令失败',err,{},'CmdExecError')
+            $throwError('CommandsExecError',err,null,[
+                ['zh-cn','解析或执行指令失败'],
+                ['en-us','Proceed commands failed']
+            ])
         }
     }
 }
@@ -160,8 +212,14 @@ async function proceed(knex,doorman,scanner,commands,isTrans,root,logs,user) {
  */
 async function handleCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,user,commands,level) {
     try {
-        if (isTop === true) logs.push(prefix(level) + '$ 开始执行顶层指令 /' + cmd.name + ' - ' + cmd.type + ' 类型')
-        else logs.push(prefix(level) + '@ 开始执行级联指令 [' + cmd.name + '] - ' + cmd.type + ' 类型')
+        if (isTop === true) addLog(logs, [
+            ['zh-cn', `${prefix(level)}$ 开始执行顶层命令 /${cmd.name} (${cmd.type} 类型)`],
+            ['en-us', `${prefix(level)}$ Begin to handle top command /${cmd.name} ('${cmd.type}' type)`]
+        ])
+        else addLog(logs, [
+            ['zh-cn', `${prefix(level)}@ 开始执行级联指令 /${cmd.name} (${cmd.type} 类型)`],
+            ['en-us', `${prefix(level)}@ Begin to handle cascaded command /${cmd.name} ('${cmd.type}' type)`]
+        ])
         // console.log('handleCmd',cmd.name)
         let result = null
         // 执行指令
@@ -172,7 +230,10 @@ async function handleCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,use
         else {
             // 检查缓存空间是否已经存在
             if (Object.keys(root).indexOf(cmd.name) >= 0) {
-                logs.push(prefix(level) + '$ /' + cmd.name + ' 已经存在')
+                addLog(logs, [
+                    ['zh-cn', `${prefix(level)}$ /${cmd.name} 已经存在`],
+                    ['en-us', `${prefix(level)}$ /${cmd.name} already exists`]
+                ])
                 return root[cmd.name].data
             }
             validator.checkTopCommand(cmd)
@@ -184,19 +245,23 @@ async function handleCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,use
             }
         }
         // 2、检查 onlyIf 前置条件
-        // logs.push('* 检查前置条件')
         let cr = await checkOnlyIf(cmd,parent,root,knex,trx,doorman,scanner,isTop,logs,user,commands,level)
         // console.log(cr)
         if (cr === false) {
-            // logs.push('* 不成立！跳过 "' + cmd.name + '" 指令')
+            addLog(logs, [
+                ['zh-cn', `${prefix(level)}* 前置条件不成立！跳过 '${cmd.name}' 指令`],
+                ['en-us', `${prefix(level)}* Precondition does not match, skip '${cmd.name}' command`]
+            ])
             return null
         }
         // 3、检查指令权限
-        // logs.push('* 检查是否具有操作当前指令的权限')
         // 非引用指令才有必要检查
         if (cmd.target.indexOf('/') < 0) {
             // 以 JBDAP_ 开头的系统内置表均不可被前端访问
-            if (cmd.target.indexOf('JBDAP_') === 0) $throwError('没有权限执行当前指令 "' + cmd.name + '"',null,{},'JBDAPAuthError')
+            if (cmd.target.indexOf('JBDAP_') === 0) $throwError('AuthError',null,null,[
+                ['zh-cn', `没有权限执行当前指令 '${cmd.name}'`],
+                ['en-us', `No authority to handle current command '${cmd.name}'`]
+            ])
             // 调用自定义权限控制函数进行检查
             if (_.isFunction(doorman)) {
                 let data = null
@@ -212,7 +277,7 @@ async function handleCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,use
                     let qCmd = _.cloneDeep(cmd)
                     qCmd.type = 'values'
                     // 只查询 id 字段
-                    qCmd.fields = ['pick#id=>ids']
+                    qCmd.fields = ['pick#' + $primaryKey + '=>ids']
                     delete qCmd.data
                     data = (await queryCmd(knex,trx,doorman,scanner,false,qCmd,parent,root,logs,user,commands,level)).ids
                     // console.log(data)
@@ -221,13 +286,19 @@ async function handleCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,use
                 // 传给检验函数
                 let authorized = true
                 try {
-                    authorized = await doorman(user,cmd,data)
+                    // 没有定义则生成一个
+                    if (_.isFunction(doorman)) authorized = await doorman(user,cmd,data)
                 }
                 catch (err) {
-                    // logs.push('* 没有权限！终止 JBDAP 任务')
-                    $throwError('没有权限执行当前指令 "' + cmd.name + '"',err,{},'JBDAPAuthError')
+                    $throwError('AuthError',err,null,[
+                        ['zh-cn', `没有权限执行当前指令 '${cmd.name}'`],
+                        ['en-us', `No authority to handle current command '${cmd.name}'`]
+                    ])
                 }
-                if (authorized === false) $throwError('没有权限执行当前指令 "' + cmd.name + '"',null,{},'JBDAPAuthError')
+                if (authorized === false) $throwError('AuthError',null,null,[
+                    ['zh-cn', `没有权限执行当前指令 '${cmd.name}'`],
+                    ['en-us', `No authority to handle current command '${cmd.name}'`]
+                ])
             }
         }
         // 4、对指令进行分类执行
@@ -250,7 +321,10 @@ async function handleCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,use
         // 5、执行 after 定义的后续指令
         validator.checkAfter(cmd.after)
         if (!_.isUndefined(cmd.after)) {
-            logs.push(prefix(level+1) + '# 开始执行后置指令')
+            addLog(logs, [
+                ['zh-cn', `${prefix(level)}# 开始执行后置指令`],
+                ['en-us', `${prefix(level)}# Subsequent commands begin`]
+            ])
             let afterCmds = cmd.after
             if (!_.isArray(cmd.after)) afterCmds = [cmd.after]
             for (let i=0; i<afterCmds.length; i++) {
@@ -258,16 +332,49 @@ async function handleCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,use
                 let temp = await handleCmd(knex,trx,doorman,scanner,false,afterCmds[i],result,root,logs,user,commands,level+2)
                 // console.log(temp)
             }
-            logs.push(prefix(level+1) + '# 后置指令执行完毕')
+            addLog(logs, [
+                ['zh-cn', `${prefix(level)}# 后置指令执行完毕`],
+                ['en-us', `${prefix(level)}# Subsequent commands finished`]
+            ])
         }
-        if (isTop === true) logs.push(prefix(level) + '$ 顶层指令 /' + cmd.name + ' 执行完毕')
-        else logs.push(prefix(level) + '@ 级联指令 [' + cmd.name + '] 执行完毕')
+        if (isTop === true) addLog(logs, [
+            ['zh-cn', `${prefix(level)}$ 顶层命令 /${cmd.name} 执行完毕`],
+            ['en-us', `${prefix(level)}$ Top command /${cmd.name} finished`]
+        ])
+        else addLog(logs, [
+            ['zh-cn', `${prefix(level)}@ 级联指令 /${cmd.name} 执行完毕`],
+            ['en-us', `${prefix(level)}@ Cascaded command '${cmd.name}' finished`]
+        ])
         return result
     }
     catch (err) {
-        if (isTop === true) logs.push(prefix(level) + '$ 顶层指令 /' + cmd.name + ' 出现错误')
-        else logs.push(prefix(level) + '@ 级联指令 [' + cmd.name + '] 出现错误')
-        $throwError('处理指令 "' + cmd.name + '" 出错',err,{},'JBDAPCommandError')
+        if (isTop === true) addLog(logs, [
+            ['zh-cn', `${prefix(level)}$ 执行顶层命令 /${cmd.name} 出错`],
+            ['en-us', `${prefix(level)}$ Error occurred in top command /${cmd.name}`]
+        ])
+        else addLog(logs, [
+            ['zh-cn', `${prefix(level)}@ 执行级联指令 /${cmd.name} 出现错误`],
+            ['en-us', `${prefix(level)}$ Error occurred in cascaded command /${cmd.name}`]
+        ])
+        $throwError('CommandHandlerError',err,null,[
+            ['zh-cn', `处理指令 '${cmd.name}' 出错`],
+            ['en-us', `Error occurred while handling command '${cmd.name}'`]
+        ])
+    }
+}
+
+/**
+ * 写入日志
+ * @param {array} logs 日志存储列表
+ * @param {array} dict 不同语言日志内容
+ */
+function addLog(logs,dict) {
+    for (let i=0; i<dict.length; i++) {
+        let item = dict[i]
+        if (item[0] === $i18nLang) {
+            logs.push(item[1])
+            break
+        }
     }
 }
 
@@ -319,17 +426,26 @@ async function queryCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,user
                     // 执行查询
                     await handleCmd(knex,trx,doorman,scanner,isTop,commands[idx],parent,root,logs,user,commands,level+1)
                 }
-                else $throwError('被引用对象 "/' + objName + '" 不存在于 commands 指令集中',null,{},'CmdDefError')
+                else $throwError('RefDefError',null,null,[
+                    ['zh-cn', `被引用对象 '/${objName}' 不存在于 commands 指令集中`],
+                    ['en-us', `The referred target '/${objName}' doesn't exist in commands`]
+                ])
             }
             // 被引用数据
             let rawData = root[objName].data
-            if (_.isNull(rawData)) $throwError('被引用对象 "/' + objName + '" 为 null',null,{},'RefValueError')
+            if (_.isNull(rawData)) $throwError('RefDefError',null,null,[
+                ['zh-cn', `被引用对象 '/${objName}' 不能为 null`],
+                ['en-us', `The referred target '/${objName}' can not be a null`]
+            ])
             // 级联属性
             if (_.isPlainObject(rawData)) {
                 let slices = cmd.target.split('/')[1].split('.')
                 if (slices.length > 1) {
                     for (let i=1; i<slices.length; i++) {
-                        if (Object.keys(rawData).indexOf(slices[i]) < 0) $throwError('引用对象有误，不存在 "' + cmd.target + '" 路径',null,{},'RefDefError')
+                        if (Object.keys(rawData).indexOf(slices[i]) < 0) $throwError('RefDefError',null,null,[
+                            ['zh-cn', `引用对象有误，不存在 '${cmd.target}' 路径`],
+                            ['en-us', `The referred path '${cmd.target}' does not exist`]
+                        ])
                         rawData = rawData[slices[i]]
                     }
                 }
@@ -347,7 +463,10 @@ async function queryCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,user
                 // 从 object 中取子集 object
                 result = reference.getObjFromObj(rawData,rawFields)
             }
-            else $throwError('被引用对象 "' + cmd.target + '" 必须是 Array 或者 Object 类型',null,{},'RefValueError')
+            else $throwError('RefValueError',null,null,[
+                ['zh-cn', `被引用对象 '${cmd.target}' 必须是 Array 或者 Object 类型`],
+                ['en-us', `The referred target '${cmd.target}' must be an Array or an Object`]
+            ])
         }
         else {
             // 数据表查询开始 ==>
@@ -388,12 +507,18 @@ async function queryCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,user
             // 4、执行查询
             // 只用 sql 函数就可以实现的 values 查询
             if (cmd.type === 'values' && needList === false) {
-                if (valuesFields.length === 0) $throwError('values 查询类型至少要定义一个取值字段',null,{},'CmdDefError')
+                if (valuesFields.length === 0) $throwError('FieldsDefError',null,null,[
+                    ['zh-cn', `'values' 查询类型至少要定义一个取值字段`],
+                    ['en-us', `Queries of type 'values' require at least one value field`]
+                ])
                 for (let i=0; i<valuesFields.length; i++) {
                     // 传入查询结果进行处理
                     let item = valuesFields[i]
                     let slices = item.fields.split(',')
-                    if (slices.length > 1) $throwError(item.operator + ' 运算只接受一个字段',null,{},'FieldsDefError')
+                    if (slices.length > 1) $throwError('FieldsDefError',null,null,[
+                        ['zh-cn', `'${item.operator}' 运算只接受一个字段`],
+                        ['en-us', `Calculations of type '${item.operator}' accept only one field`]
+                    ])
                     query = eval(`query.${item.operator}({ ${item.name}: '${slices[0]}' })`)
                 }
                 console.log('sql:',query.toString())
@@ -406,18 +531,24 @@ async function queryCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,user
             }
             // console.log('result',result)
             // 5、敏感字段过滤
-            // logs.push('$ 屏蔽 "' + cmd.name + '" 的敏感字段')
             // 非引用类型才需要过滤
             if (cmd.target.indexOf('/') < 0) {
                 if (_.isFunction(scanner)) result = scanner(user,cmd,fields,result)
             }
             // 6、如果是 values 取值查询，则执行相应的数据处理
             if (cmd.type === 'values' && needList === true) {
-                if (valuesFields.length === 0) $throwError('values 查询类型至少要定义一个取值字段',null,{},'CmdDefError')
+                if (valuesFields.length === 0) $throwError('FieldsDefError',null,null,[
+                    ['zh-cn', `'values' 查询类型至少要定义一个取值字段`],
+                    ['en-us', `Queries of type 'values' require at least one value field`]
+                ])
                 let values = {}
                 for (let i=0; i<valuesFields.length; i++) {
                     // 传入查询结果进行处理
                     let item = valuesFields[i]
+                    if (Object.keys(values).indexOf(item.name) >= 0) $throwError('FieldsDefError',null,null,[
+                        ['zh-cn', `'fields' 中定义的别名有重复`],
+                        ['en-us', `'fields' property contains conflict alias definition`]
+                    ])
                     values[item.name] = calculator.getValue(result,item)
                 }
                 result = values
@@ -426,18 +557,19 @@ async function queryCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,user
         }
         // 7、填充级联字段
         if (cmd.type !== 'values') {
-            // logs.push('@ 开始为 "' + cmd.name + '" 填充级联属性')
             for (let i=0; i<result.length; i++) {
                 // entity 只填充第一行
                 if (cmd.type === 'entity' && i > 0) break
                 let item = result[i]
                 for (let i=0; i<cascadedFields.length; i++) {
                     let key = cascadedFields[i].name
-                    if (_.isUndefined(key)) $throwError('级联字段定义错误，name 属性是必须的',null,{},'CmdDefError')
+                    if (_.isUndefined(key)) $throwError('CmdDefError',null,null,[
+                        ['zh-cn', `级联字段定义错误，'name' 属性是必须的`],
+                        ['en-us', `Cascaded fields definition is invalid, requires a 'name' property`]
+                    ])
                     item[key] = await handleCmd(knex,trx,doorman,scanner,false,cascadedFields[i],item,root,logs,user,commands,level+1)
                 }
             }
-            // logs.push('@ "' + cmd.name + '" 的级联属性填充成功')
         }
         // 整理返回值
         if (cmd.type === 'entity') {
@@ -456,7 +588,10 @@ async function queryCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,user
         return result
     }
     catch (err) {
-        $throwError('查询数据出错',err,{},'DBQueryError')
+        $throwError('DBQueryError',err,null,[
+            ['zh-cn', `查询数据出错`],
+            ['en-us', `Error occurred while querying data`]
+        ])
     }
 }
 
@@ -481,7 +616,10 @@ async function executeCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,us
     try {
         // console.log('executeCmd',cmd.name)
         // 判断查询类型
-        if (cmd.target.indexOf('/') >= 0) $throwError('操作类指令 target 不能是引用对象',null,{},'CmdDefError')
+        if (cmd.target.indexOf('/') >= 0) $throwError('TargetDefError',null,null,[
+            ['zh-cn', `操作类指令 'target' 不能是引用对象`],
+            ['en-us', `A referred object can not be the 'target' in '${cmd.type}' commands`]
+        ])
         else {
             // 数据表操作开始
             // 0、检查 query 是否合法
@@ -530,8 +668,8 @@ async function executeCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,us
                         }
                     }
                 }
-                if (cmd.type === 'create') query = query.insert(cmd.data,['id'])
-                if (cmd.type === 'update') query = query.update(cmd.data[0],['id'])
+                if (cmd.type === 'create') query = query.insert(cmd.data,[$primaryKey])
+                if (cmd.type === 'update') query = query.update(cmd.data[0],[$primaryKey])
             }
             console.log('sql:',query.toString())
             result = await query
@@ -548,7 +686,10 @@ async function executeCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,us
         }
     }
     catch (err) {
-        $throwError('操作数据出错',err,{},'DBExecError')
+        $throwError('DBExecError',err,null,[
+            ['zh-cn', `操作数据出错`],
+            ['en-us', `Error occurred while operating data`]
+        ])
     }
 }
 
@@ -578,7 +719,10 @@ async function getWhereFunc(cmd,parent,root,knex,trx,doorman,scanner,isTop,logs,
         return func
     }
     catch (err) {
-        $throwError('where 条件解析出错',err,{},'JBDAPWhereError')
+        $throwError('WhereParserError',err,null,[
+            ['zh-cn', `'where' 条件解析出错`],
+            ['en-us', `Error occurred while parsing 'where' conditions`]
+        ])
     }
 }
 
@@ -600,206 +744,225 @@ async function getWhereFunc(cmd,parent,root,knex,trx,doorman,scanner,isTop,logs,
  * @param {integer} level 缩进层次
  */
 async function getSubConditionFunc(obj,type,cmd,parent,root,knex,trx,doorman,scanner,isTop,logs,user,commands,level) {
-    if (Object.prototype.toString.call(obj) !== '[object Object]') $throwError('where 子查询条件不正确，$' + type + ' 的值必须是 Object 类型',null,{},'WhereDefError')
-    let keys = Object.keys(obj)
-    let funcDefine = 'function(){ '
-    // 注意，这里是为了构造一个函数
-    // 此函数下所有的 this 在运行时都指向正在执行的 knex 实例
-    // 
-    for (let i=0;i<keys.length; i++) {
-        let key = keys[i]
-        let value = obj[key]
-        // key 的处理
-        // 如果是子查询表达式
-        if (key === '$or' || key === '$and' || key === '$not') {
-            // 构造子查询条件
-            let sub = await getSubConditionFunc(value,key.replace('$',''),cmd,parent,root,knex,trx,doorman,isTop,logs,user,commands,level)
-            let w = 'this.where'
-            if (type === 'not') w = w + 'Not'
-            if (i > 0) {
-                if (type !== 'not') w = w.replace('this.where','.' + type + 'Where')
-                else  w = '.andWhereNot'
+    if (Object.prototype.toString.call(obj) !== '[object Object]') $throwError('WhereDefError',null,null,[
+        ['zh-cn', `where 子查询条件不正确，'$${type}' 的值必须是 Object 类型`],
+        ['en-us', `Invalid sub condition definition, value of '$${type}' must be an Object`]
+    ])
+    try {
+        let keys = Object.keys(obj)
+        let funcDefine = 'function(){ '
+        // 注意，这里是为了构造一个函数
+        // 此函数下所有的 this 在运行时都指向正在执行的 knex 实例
+        // 
+        for (let i=0;i<keys.length; i++) {
+            let key = keys[i]
+            let value = obj[key]
+            // key 的处理
+            // 如果是子查询表达式
+            if (key === '$or' || key === '$and' || key === '$not') {
+                // 构造子查询条件
+                let sub = await getSubConditionFunc(value,key.replace('$',''),cmd,parent,root,knex,trx,doorman,isTop,logs,user,commands,level)
+                let w = 'this.where'
+                if (type === 'not') w = w + 'Not'
+                if (i > 0) {
+                    if (type !== 'not') w = w.replace('this.where','.' + type + 'Where')
+                    else  w = '.andWhereNot'
+                }
+                funcDefine += `${w}(${sub})`
             }
-            funcDefine += `${w}(${sub})`
+            // 单项表达式
+            else {
+                // 先解析
+                let comparision = parser.parseComparision(key,value)
+                try {
+                    if (_.isString(comparision.right)) comparision.right = calculator.tag2value(comparision.right,parent,root,null)
+                }
+                catch (err) {
+                    if (err.name === 'Tag2ValueError' && err.fullMessage().indexOf('[TagRefNotFilled]') > 0) {
+                        // 发现尚未填充的引用对象
+                        // 这里要调用填充
+                        let ref = err.fullInfo().needRef
+                        // console.log(err.fullInfo())
+                        // 检查是否存在该 ref
+                        let idx = _.findIndex(commands,{ name: ref })
+                        if (idx >= 0) {
+                            // 存在与 ref 同名的指令
+                            // 执行查询
+                            // console.log(commands[idx])
+                            await handleCmd(knex,trx,doorman,scanner,isTop,commands[idx],parent,root,logs,user,commands,level+1)
+                            // 然后重新执行 attchWhere
+                            return await getSubConditionFunc(obj,type,cmd,parent,root,knex,trx,doorman,scanner,isTop,logs,user,commands,level)
+                        }
+                        else $throwError('WhereDefError',null,null,[
+                            ['zh-cn', `'where' 查询中的被引用对象 '/${ref}' 不存在于 commands 指令集中`],
+                            ['en-us', `The referred target '/${ref}' in 'where' conditions doesn't exist in commands`]
+                        ])
+                    }
+                    else $throwError('WhereValueError',null,null,[
+                        ['zh-cn', `'where' 条件赋值出错`],
+                        ['en-us', `Error occurred while setting values for 'where' conditions`]
+                    ])
+                }
+                // 后拼组查询条件
+                let left = comparision.left, right = comparision.right, operator = comparision.operator
+                switch (operator) {
+                    case 'eq': {
+                        let w = 'this.where'
+                        if (type === 'not') w = w + 'Not'
+                        if (i > 0) {
+                            if (type !== 'not') w = w.replace('this.where','.' + type + 'Where')
+                            else  w = '.andWhereNot'
+                        }
+                        funcDefine += `${w}({'${left}': ${JSON.stringify(right)}})`
+                        break
+                    }
+                    case 'ne':{
+                        let w = 'this.whereNot'
+                        if (type === 'not') w = w.replace('Not','')
+                        if (i > 0) {
+                            if (type !== 'not') w = w.replace('this.where','.' + type + 'Where')
+                            else  w = '.andWhere'
+                        }
+                        funcDefine += `${w}({'${left}': ${JSON.stringify(right)}})`
+                        break
+                    }
+                    case 'gte': {
+                        let w = 'this.where'
+                        if (type === 'not') w = w + 'Not'
+                        if (i > 0) {
+                            if (type !== 'not') w = w.replace('this.where','.' + type + 'Where')
+                            else  w = '.andWhereNot'
+                        }
+                        funcDefine += `${w}('${left}','>=',${JSON.stringify(right)})`
+                        break
+                    }
+                    case 'gt': {
+                        let w = 'this.where'
+                        if (type === 'not') w = w + 'Not'
+                        if (i > 0) {
+                            if (type !== 'not') w = w.replace('this.where','.' + type + 'Where')
+                            else  w = '.andWhereNot'
+                        }
+                        funcDefine += `${w}('${left}','>',${JSON.stringify(right)})`
+                        break
+                    }
+                    case 'lte': {
+                        let w = 'this.where'
+                        if (type === 'not') w = w + 'Not'
+                        if (i > 0) {
+                            if (type !== 'not') w = w.replace('this.where','.' + type + 'Where')
+                            else  w = '.andWhereNot'
+                        }
+                        funcDefine += `${w}('${left}','<=',${JSON.stringify(right)})`
+                        break
+                    }
+                    case 'lt': {
+                        let w = 'this.where'
+                        if (type === 'not') w = w + 'Not'
+                        if (i > 0) {
+                            if (type !== 'not') w = w.replace('this.where','.' + type + 'Where')
+                            else  w = '.andWhereNot'
+                        }
+                        funcDefine += `${w}('${left}','<',${JSON.stringify(right)})`
+                        break
+                    }
+                    case 'in': {
+                        let w = 'this.whereIn'
+                        if (type === 'not') w = w.replace('In','NotIn')
+                        if (i > 0) {
+                            if (type !== 'not') w = w.replace('this.where','.' + type + 'Where')
+                            else  w = '.andWhereNotIn'
+                        }
+                        funcDefine += `${w}('${left}',${JSON.stringify(right)})`
+                        break
+                    }
+                    case 'notIn': {
+                        let w = 'this.whereNotIn'
+                        if (type === 'not') w = w.replace('NotIn','In')
+                        if (i > 0) {
+                            if (type !== 'not') w = w.replace('this.where','.' + type + 'Where')
+                            else  w = '.andWhereIn'
+                        }
+                        funcDefine += `${w}('${left}',${JSON.stringify(right)})`
+                        break
+                    }
+                    case 'like': {
+                        let w = 'this.where'
+                        if (type === 'not') w = w + 'Not'
+                        if (i > 0) {
+                            if (type !== 'not') w = w.replace('this.where','.' + type + 'Where')
+                            else  w = '.andWhereNot'
+                        }
+                        funcDefine += `${w}('${left}','like',${JSON.stringify(right)})`
+                        break
+                    }
+                    case 'notLike': {
+                        let w = 'this.whereNot'
+                        if (type === 'not') w = w.replace('Not','')
+                        if (i > 0) {
+                            if (type !== 'not') w = w.replace('this.where','.' + type + 'Where')
+                            else  w = '.andWhere'
+                        }
+                        funcDefine += `${w}('${left}','like',${JSON.stringify(right)})`
+                        break
+                    }
+                    case 'between': {
+                        let w = 'this.whereBetween'
+                        if (type === 'not') w = w.replace('Between','NotBetween')
+                        if (i > 0) {
+                            if (type !== 'not') w = w.replace('this.where','.' + type + 'Where')
+                            else  w = '.andWhereNotBetween'
+                        }
+                        funcDefine += `${w}('${left}',${JSON.stringify(right)})`
+                        break
+                    }
+                    case 'notBetween': {
+                        let w = 'this.whereNotBetween'
+                        if (type === 'not') w = w.replace('NotBetween','Between')
+                        if (i > 0) {
+                            if (type !== 'not') w = w.replace('this.where','.' + type + 'Where')
+                            else  w = '.andWhereBetween'
+                        }
+                        funcDefine += `${w}('${left}',${JSON.stringify(right)})`
+                        break
+                    }
+                    case 'isNull': {
+                        let w = 'this.whereNull'
+                        if (type === 'not') w = w.replace('Null','NotNull')
+                        if (i > 0) {
+                            if (type !== 'not') w = w.replace('this.where','.' + type + 'Where')
+                            else  w = '.andWhereNotNull'
+                        }
+                        funcDefine += `${w}('${left}')`
+                        break
+                    }
+                    case 'isNotNull': {
+                        let w = 'this.whereNotNull'
+                        if (type === 'not') w = w.replace('NotNull','Null')
+                        if (i > 0) {
+                            if (type !== 'not') w = w.replace('this.where','.' + type + 'Where')
+                            else  w = '.andWhereNull'
+                        }
+                        funcDefine += `${w}('${left}')`
+                        break
+                    }
+                    default:
+                        $throwError('WhereDefError',null,null,[
+                            ['zh-cn', `运算符 '${operator}' 不存在`],
+                            ['en-us', `Operator '${operator}' does not exist`]
+                        ])
+                }
+            }
         }
-        // 单项表达式
-        else {
-            // 先解析
-            let comparision = parser.parseComparision(key,value)
-            try {
-                if (_.isString(comparision.right)) comparision.right = calculator.tag2value(comparision.right,parent,root,null)
-            }
-            catch (err) {
-                if (err.name === 'Tag2ValueError' && err.fullMessage().indexOf('[TagRefNotFilled]') > 0) {
-                    // 发现尚未填充的引用对象
-                    // 这里要调用填充
-                    let ref = err.fullInfo().needRef
-                    // console.log(err.fullInfo())
-                    // 检查是否存在该 ref
-                    let idx = _.findIndex(commands,{ name: ref })
-                    if (idx >= 0) {
-                        // 存在与 ref 同名的指令
-                        // 执行查询
-                        // console.log(commands[idx])
-                        await handleCmd(knex,trx,doorman,scanner,isTop,commands[idx],parent,root,logs,user,commands,level+1)
-                        // 然后重新执行 attchWhere
-                        return await getSubConditionFunc(obj,type,cmd,parent,root,knex,trx,doorman,scanner,isTop,logs,user,commands,level)
-                    }
-                    else $throwError('where 查询中的引用对象 "/' + ref + '" 不存在于 commands 指令集中',err,{},'WhereDefError')
-                }
-                else $throwError('where 条件赋值出错',err,{},'WhereValueError')
-            }            
-            // 后拼组查询条件
-            let left = comparision.left, right = comparision.right, operator = comparision.operator
-            let bookend = (_.isString(right) ? "'" : "")
-            switch (operator) {
-                case 'eq': {
-                    let w = 'this.where'
-                    if (type === 'not') w = w + 'Not'
-                    if (i > 0) {
-                        if (type !== 'not') w = w.replace('this.where','.' + type + 'Where')
-                        else  w = '.andWhereNot'
-                    }
-                    funcDefine += `${w}({'${left}': ${JSON.stringify(right)}})`
-                    break
-                }
-                case 'ne':{
-                    let w = 'this.whereNot'
-                    if (type === 'not') w = w.replace('Not','')
-                    if (i > 0) {
-                        if (type !== 'not') w = w.replace('this.where','.' + type + 'Where')
-                        else  w = '.andWhere'
-                    }
-                    funcDefine += `${w}({'${left}': ${JSON.stringify(right)}})`
-                    break
-                }
-                case 'gte': {
-                    let w = 'this.where'
-                    if (type === 'not') w = w + 'Not'
-                    if (i > 0) {
-                        if (type !== 'not') w = w.replace('this.where','.' + type + 'Where')
-                        else  w = '.andWhereNot'
-                    }
-                    funcDefine += `${w}('${left}','>=',${JSON.stringify(right)})`
-                    break
-                }
-                case 'gt': {
-                    let w = 'this.where'
-                    if (type === 'not') w = w + 'Not'
-                    if (i > 0) {
-                        if (type !== 'not') w = w.replace('this.where','.' + type + 'Where')
-                        else  w = '.andWhereNot'
-                    }
-                    funcDefine += `${w}('${left}','>',${JSON.stringify(right)})`
-                    break
-                }
-                case 'lte': {
-                    let w = 'this.where'
-                    if (type === 'not') w = w + 'Not'
-                    if (i > 0) {
-                        if (type !== 'not') w = w.replace('this.where','.' + type + 'Where')
-                        else  w = '.andWhereNot'
-                    }
-                    funcDefine += `${w}('${left}','<=',${JSON.stringify(right)})`
-                    break
-                }
-                case 'lt': {
-                    let w = 'this.where'
-                    if (type === 'not') w = w + 'Not'
-                    if (i > 0) {
-                        if (type !== 'not') w = w.replace('this.where','.' + type + 'Where')
-                        else  w = '.andWhereNot'
-                    }
-                    funcDefine += `${w}('${left}','<',${JSON.stringify(right)})`
-                    break
-                }
-                case 'in': {
-                    let w = 'this.whereIn'
-                    if (type === 'not') w = w.replace('In','NotIn')
-                    if (i > 0) {
-                        if (type !== 'not') w = w.replace('this.where','.' + type + 'Where')
-                        else  w = '.andWhereNotIn'
-                    }
-                    funcDefine += `${w}('${left}',${JSON.stringify(right)})`
-                    break
-                }
-                case 'notIn': {
-                    let w = 'this.whereNotIn'
-                    if (type === 'not') w = w.replace('NotIn','In')
-                    if (i > 0) {
-                        if (type !== 'not') w = w.replace('this.where','.' + type + 'Where')
-                        else  w = '.andWhereIn'
-                    }
-                    funcDefine += `${w}('${left}',${JSON.stringify(right)})`
-                    break
-                }
-                case 'like': {
-                    let w = 'this.where'
-                    if (type === 'not') w = w + 'Not'
-                    if (i > 0) {
-                        if (type !== 'not') w = w.replace('this.where','.' + type + 'Where')
-                        else  w = '.andWhereNot'
-                    }
-                    funcDefine += `${w}('${left}','like',${JSON.stringify(right)})`
-                    break
-                }
-                case 'notLike': {
-                    let w = 'this.whereNot'
-                    if (type === 'not') w = w.replace('Not','')
-                    if (i > 0) {
-                        if (type !== 'not') w = w.replace('this.where','.' + type + 'Where')
-                        else  w = '.andWhere'
-                    }
-                    funcDefine += `${w}('${left}','like',${JSON.stringify(right)})`
-                    break
-                }
-                case 'between': {
-                    let w = 'this.whereBetween'
-                    if (type === 'not') w = w.replace('Between','NotBetween')
-                    if (i > 0) {
-                        if (type !== 'not') w = w.replace('this.where','.' + type + 'Where')
-                        else  w = '.andWhereNotBetween'
-                    }
-                    funcDefine += `${w}('${left}',${JSON.stringify(right)})`
-                    break
-                }
-                case 'notBetween': {
-                    let w = 'this.whereNotBetween'
-                    if (type === 'not') w = w.replace('NotBetween','Between')
-                    if (i > 0) {
-                        if (type !== 'not') w = w.replace('this.where','.' + type + 'Where')
-                        else  w = '.andWhereBetween'
-                    }
-                    funcDefine += `${w}('${left}',${JSON.stringify(right)})`
-                    break
-                }
-                case 'isNull': {
-                    let w = 'this.whereNull'
-                    if (type === 'not') w = w.replace('Null','NotNull')
-                    if (i > 0) {
-                        if (type !== 'not') w = w.replace('this.where','.' + type + 'Where')
-                        else  w = '.andWhereNotNull'
-                    }
-                    funcDefine += `${w}('${left}')`
-                    break
-                }
-                case 'isNotNull': {
-                    let w = 'this.whereNotNull'
-                    if (type === 'not') w = w.replace('NotNull','Null')
-                    if (i > 0) {
-                        if (type !== 'not') w = w.replace('this.where','.' + type + 'Where')
-                        else  w = '.andWhereNull'
-                    }
-                    funcDefine += `${w}('${left}')`
-                    break
-                }
-                default:
-                    $throwError('运算符 "' + operator + '" 不存在',null,{},'WhereDefError')
-            }
-        }
+        funcDefine += ' }'
+        return funcDefine
     }
-    funcDefine += ' }'
-    return funcDefine
+    catch (err) {
+        $throwError('SubWhereParserError',err,null,[
+            ['zh-cn', `'where' 子条件解析出错`],
+            ['en-us', `Error occurred while parsing 'where' sub conditions`]
+        ])
+    }
 }
 
 /**
@@ -826,7 +989,7 @@ async function checkOnlyIf(cmd,parent,root,knex,trx,doorman,scanner,isTop,logs,u
         }
     }
     catch (err) {
-        if (err.name === 'JBDAPConditionCalError' && err.fullMessage().indexOf('[TagRefNotFilled]') > 0) {
+        if (err.name === 'ConditionCalError' && err.fullMessage().indexOf('[TagRefNotFilled]') > 0) {
             // 发现尚未填充的引用对象
             // 这里要调用填充
             let ref = err.fullInfo().needRef
@@ -840,9 +1003,15 @@ async function checkOnlyIf(cmd,parent,root,knex,trx,doorman,scanner,isTop,logs,u
                 // 然后重新执行 onlyIf 并返回
                 return await checkOnlyIf(cmd,parent,root,knex,trx,doorman,scanner,isTop,logs,user,commands,level)
             }
-            else $throwError('onlyIf 条件中的引用对象 "/' + ref + '" 不存在于 commands 指令集中',err,{},'OnlyIfDefError')
+            else $throwError('OnlyIfDefError',null,null,[
+                ['zh-cn', `'onlyIf' 条件中的被引用对象 '/${ref}' 不存在于 commands 指令集中`],
+                ['en-us', `The referred target '/${ref}' in 'onlyIf' conditions doesn't exist in commands`]
+            ])
         }
-        else $throwError('onlyIf 条件解析失败',err,{},'JBDAPOnlyIfError')
+        else $throwError('OnlyIfError',err,null,[
+            ['zh-cn', `'onlyIf' 条件解析出错`],
+            ['en-us', `Error occurred while parsing 'onlyIf' conditions`]
+        ])
     }
 }
 

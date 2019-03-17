@@ -48,7 +48,15 @@ let json = {
     ]
 }
 
-JBDAP.manipulate(knex,recognizer,doorman,scanner,json).then((res) => {
+let config = {
+    serverName: 'sqlite',
+    language: 'en-us',
+    recognizer: recognizer,
+    doorman: doorman,
+    scanner: scanner
+}
+
+JBDAP.manipulate(knex,json,config).then((res) => {
     console.log(JSON.stringify(res,null,4))
     process.exit()
 }).catch((err) => {

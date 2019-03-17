@@ -37,9 +37,9 @@ async function checkTable(name) {
                             console.log('- 数据表 [' + name + '] 创建成功')
                         }
                         catch (ex) {
-                            $throwError('数据表结构创建失败',ex,{
+                            $throwError('DBSchemaError',ex,{
                                 table: name
-                            },'DBSchemaError')
+                            },[['zh-cn', '数据表结构创建失败']])
                         }
                     })
                 }
@@ -54,9 +54,9 @@ async function checkTable(name) {
                             console.log('- 数据表 [' + name + '] 创建成功')
                         }
                         catch (ex) {
-                            $throwError('数据表结构创建失败',ex,{
+                            $throwError('DBSchemaError',ex,{
                                 table: name
-                            },'DBSchemaError')
+                            },[['zh-cn', '数据表结构创建失败']])
                         }
                     })
                 }
@@ -76,9 +76,9 @@ async function checkTable(name) {
                             console.log('- 数据表 [' + name + '] 创建成功')    
                         }
                         catch (ex) {
-                            $throwError('数据表结构创建失败',ex,{
+                            $throwError('DBSchemaError',ex,{
                                 table: name
-                            },'DBSchemaError')
+                            },[['zh-cn', '数据表结构创建失败']])
                         }
                     })
                 }
@@ -96,9 +96,9 @@ async function checkTable(name) {
                             console.log('- 数据表 [' + name + '] 创建成功')    
                         }
                         catch (ex) {
-                            $throwError('数据表结构创建失败',ex,{
+                            $throwError('DBSchemaError',ex,{
                                 table: name
-                            },'DBSchemaError')
+                            },[['zh-cn', '数据表结构创建失败']])
                         }
                     })
                 }
@@ -113,9 +113,9 @@ async function checkTable(name) {
                             console.log('- 数据表 [' + name + '] 创建成功')    
                         }
                         catch (ex) {
-                            $throwError('数据表结构创建失败',ex,{
+                            $throwError('DBSchemaError',ex,{
                                 table: name
-                            },'DBSchemaError')
+                            },[['zh-cn', '数据表结构创建失败']])
                         }
                     })
                 }
@@ -131,9 +131,9 @@ async function checkTable(name) {
                             console.log('- 数据表 [' + name + '] 创建成功')
                         }
                         catch (ex) {
-                            $throwError('数据表结构创建失败',ex,{
+                            $throwError('DBSchemaError',ex,{
                                 table: name
-                            },'DBSchemaError')
+                            },[['zh-cn', '数据表结构创建失败']])
                         }
                     })
                 }
@@ -149,16 +149,16 @@ async function checkTable(name) {
                             console.log('- 数据表 [' + name + '] 创建成功')
                         }
                         catch (ex) {
-                            $throwError('数据表结构创建失败',ex,{
+                            $throwError('DBSchemaError',ex,{
                                 table: name
-                            },'DBSchemaError')
+                            },[['zh-cn', '数据表结构创建失败']])
                         }
                     })
                 }
                 default: {
-                    $throwError('数据表结构未定义',ex,{
+                    $throwError('DBSchemaError',ex,{
                         table: name
-                    },'DBSchemaError')
+                    },[['zh-cn', '数据表结构未定义']])
                 }
             }
         }
@@ -464,7 +464,7 @@ async function fillData() {
         console.log('测试数据填充成功')
     }
     catch (err) {
-        $throwError('测试数据填充出错了',err,{},'DBError')
+        $throwError('DBError',ex,{},[['zh-cn', '测试数据填充出错了']])
     }
 }
 
@@ -486,7 +486,7 @@ async function init() {
         console.log('数据库初始化成功')
     }
     catch (err) {
-        $throwError('数据库初始化出错了',err,{},'DBError')
+        $throwError('DBError',ex,{},[['zh-cn', '数据库初始化出错了']])
     }
 }
 

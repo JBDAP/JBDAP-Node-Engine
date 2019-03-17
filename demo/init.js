@@ -11,7 +11,7 @@ db.init()
             process.exit()
         }
         catch (ex) {
-            $throwError('测试失败',ex,{},'DBError')
+            $throwError('DBError',ex,{},[['zh-cn', '测试失败']])
         }
     }).catch((err) => {
         console.log(err.fullStack())
