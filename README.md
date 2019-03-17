@@ -20,8 +20,6 @@ JBDAP 的设计则定位在 **“道”** 的层面，目的是将数据处理�
 - 反对数据表与 API 生硬对应的 **“Restful 式不负责任的懒汉数据接口设计”**，提供简洁又极致自由的强大 API 模型
 - 支持在保证数据安全的前提下将数据操作权限开放给前端开发者
 
-听起来不错，但是它真的好用吗？
-
 <div style="width:100%;height:20px;border:none;"></div>
 
 ## 三、它跟 GraphQL 有什么区别？
@@ -95,7 +93,7 @@ select * from `User`
 Response:
 ~~~
 {
-    "code": 1,
+    "code": 200,
     "message": "ok",
     "data": {
         "allUsers": [
@@ -149,7 +147,7 @@ select * from `User` where (`id` = 1)
 Response:
 ~~~
 {
-    "code": 1,
+    "code": 200,
     "message": "ok",
     "data": {
         "userInfo": {
@@ -209,7 +207,7 @@ from `User`
 Response:
 ~~~
 {
-    "code": 1,
+    "code": 200,
     "message": "ok",
     "data": {
         "allUsers": [
@@ -337,7 +335,7 @@ limit 2 offset 4
 Response:
 ~~~
 {
-    "code": 1,
+    "code": 200,
     "message": "ok",
     "data": {
         "someUsers": [
@@ -405,7 +403,7 @@ select * from `Blog` where (`userId` = 1) order by `id` desc
 Response:
 ~~~
 {
-    "code": 1,
+    "code": 200,
     "message": "ok",
     "data": {
         "blogStat": {
@@ -505,7 +503,7 @@ insert into `Blog`
 Response:
 ~~~
 {
-    "code": 1,
+    "code": 200,
     "message": "ok",
     "data": {
         "newBlogs": {
@@ -568,7 +566,7 @@ where
 Response:
 ~~~
 {
-    "code": 1,
+    "code": 200,
     "message": "ok",
     "data": {
         "updateBlogs": {
@@ -616,7 +614,7 @@ delete from `Blog` where (`id` = 104)
 Response:
 ~~~
 {
-    "code": 1,
+    "code": 200,
     "message": "ok",
     "data": {
         "delBlog": {
@@ -673,7 +671,7 @@ where
 Response:
 ~~~
 {
-    "code": 1,
+    "code": 200,
     "message": "ok",
     "data": {
         "fakeNumbers": {
@@ -732,7 +730,7 @@ delete from `User` where (`id` = 17)
 Response:
 ~~~
 {
-    "code": 1,
+    "code": 200,
     "message": "ok",
     "data": {
         "delBlogs": {
@@ -846,7 +844,7 @@ limit 5
 Response:
 ~~~
 {
-    "code": 1,
+    "code": 200,
     "message": "ok",
     "data": {
         "userInfo": {
@@ -944,7 +942,7 @@ limit 10
 Response:
 ~~~
 {
-    "code": 1,
+    "code": 200,
     "message": "ok",
     "data": {
         "userBlogs": {
@@ -1067,7 +1065,7 @@ values
 Response:
 ~~~
 {
-    "code": 1,
+    "code": 200,
     "message": "ok",
     "data": {
         "newUser": {
@@ -1131,7 +1129,7 @@ update `Blog` set `views` = `views` + 1 where (`id` = 1)
 Response:
 ~~~
 {
-    "code": 1,
+    "code": 200,
     "message": "ok",
     "data": {
         "blogInfo": {
@@ -1253,7 +1251,7 @@ Request:
 Response:
 ~~~
 {
-    "code": 1,
+    "code": 200,
     "message": "ok",
     "data": {
         "userInfo": {
