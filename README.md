@@ -1,10 +1,10 @@
-# JBDAP-Node-Wrap 概览
+# JBDAP-Node-Engine 概览
 
 <div style="width:100%;height:20px;border:none;"></div>
 
 ## 一、这到底是个啥？
 
-**JBDAP-Node-Wrap** 是 **JBDAP** 的 nodejs 版官方实现，简单来说就是一个关系型数据库访问组件，帮助开发人员快速实现数据库相关应用的搭建，数据处理模块代码量有望减少 **70%** 以上。
+**JBDAP-Node-Engine** 是 **JBDAP** 的 nodejs 版官方实现，简单来说就是一个关系型数据库访问组件，帮助开发人员快速实现数据库相关应用的搭建，数据处理模块代码量有望减少 **70%** 以上。
 
 <div style="width:100%;height:20px;border:none;"></div>
 
@@ -49,7 +49,7 @@ JBDAP 的设计则定位在 **“道”** 的层面，目的是将数据处理�
 
 ## 四、JBDAP 的主要功能及特色：
 
-- 支持大多数主流关系型数据库，如 Postgres, MSSQL, MySQL, MariaDB, SQLite3, Oracle, 甚至包含 Amazon Redshift，当然这是仅针对官方版的 JBDAP-Node-Wrap 而言，事实上你完全可以开发出基于 NoSQL 或者 NewSQL 数据库引擎的 JBDAP 实现
+- 支持大多数主流关系型数据库，如 Postgres, MSSQL, MySQL, MariaDB, SQLite3, Oracle, 甚至包含 Amazon Redshift，当然这是仅针对官方版的 JBDAP-Node-Engine 而言，事实上你完全可以开发出基于 NoSQL 或者 NewSQL 数据库引擎的 JBDAP 实现
 - 高度语义化的 JSON 配置，上手简单、易学难忘，两小时会用无压力
 - 功能强大、可编程、支持复杂逻辑操作、支持事务
 - 对原有开发模式无侵入、热插拔
@@ -289,7 +289,7 @@ where (
 )
 /**
  * WOW，看这个 SQL 语句，很牛逼的样子
- * 我打赌你一般用不到这么复杂的查询，但是 JBDAP-Node-Wrap 确实允许你无限写下去
+ * 我打赌你一般用不到这么复杂的查询，但是 JBDAP-Node-Engine 确实允许你无限写下去
  */
 ~~~
 

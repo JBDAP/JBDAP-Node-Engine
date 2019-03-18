@@ -1,7 +1,5 @@
 const parser = require('../src/parser')
 
-global.$i18nLanguage = 'zh-cn'
-
 test('测试 parseFields 方法', () => {
     // 测试前提，fields 字段已经通过类型验证，不是字符串就是 object ，且不为空
     // 传入 undefined

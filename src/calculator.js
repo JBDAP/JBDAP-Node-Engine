@@ -8,6 +8,12 @@ if (!global.NiceError) require('./global')
 // 引入相关模块
 import parser from './parser'
 
+// 准备 i18n 的默认环境（单元测试用）
+if (!global.$i18nLang) global.$i18nLang = 'zh-cn'
+if (!global.$throwError) global.$throwError = function(name,cause,info,dict) {
+    $throwErrorInLanguage(name,cause,info,dict,global.$i18nLang)
+}
+
 /**
  * 条件运算
  * @param {object} obj 要计算的条件

@@ -1,7 +1,5 @@
 const validator = require('../src/validator')
 
-global.$i18nLanguage = 'zh-cn'
-
 test('测试 checkJson 方法', () => {
     // 整个参数不对
     let json = []

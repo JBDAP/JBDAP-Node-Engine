@@ -1,6 +1,6 @@
-# JBDAP-Node-Wrap 文档
+# JBDAP-Node-Engine 文档
 
-## **[English Version](https://github.com/JBDAP/JBDAP-Node-Wrap/blob/master/README.md)**
+## **[English Version](https://github.com/JBDAP/JBDAP-Node-Engine/blob/master/README.md)**
 
 <div id="nav" style="width:100%;height:1px;border:none;"></div>
 
@@ -41,9 +41,9 @@
 
 # 1. 简 介
 
-**JBDAP-Node-Wrap** 是 **JBDAP** 的 nodejs 版官方实现, 它可以让你通过定义一个 JSON 对象来操作关系型数据库，特点是上手简单、语义化强、好学易用、功能强大、支持复杂逻辑、支持事务。如果你习惯于 "不看广告看疗效"，那么请 **[点击这里](#first)** 直达代码演示区。
+**JBDAP-Node-Engine** 是 **JBDAP** 的 nodejs 版官方实现, 它可以让你通过定义一个 JSON 对象来操作关系型数据库，特点是上手简单、语义化强、好学易用、功能强大、支持复杂逻辑、支持事务。如果你习惯于 "不看广告看疗效"，那么请 **[点击这里](#first)** 直达代码演示区。
 
-如果你现在对 **JBDAP** 仍然一无所知也没关系，我们先看一下 **JBDAP-Node-Wrap** 能干什么，然后您就能知道它是不是你的菜了。
+如果你现在对 **JBDAP** 仍然一无所知也没关系，我们先看一下 **JBDAP-Node-Engine** 能干什么，然后您就能知道它是不是你的菜了。
 
 - 你可以把它视作一个数据访问助手，几乎能适配所有主流关系型数据库，如 mysql, postgresql, sqlserver, sqlite, oracle 等。 *(不过这好像也没什么大不了的)*
 
@@ -71,9 +71,9 @@
 
 ## 2.1 数据结构
 
-为了演示 JBDAP-Node-Wrap 的能力，我在这里设计了一个多用户博客应用的数据库并填充了一些测试数据，各个表的用途及其及关联在下图中一目了然：
+为了演示 JBDAP-Node-Engine 的能力，我在这里设计了一个多用户博客应用的数据库并填充了一些测试数据，各个表的用途及其及关联在下图中一目了然：
 
-![数据库结构示意图](https://github.com/JBDAP/JBDAP-Node-Wrap/raw/master/doc/img/tables.png)
+![数据库结构示意图](https://github.com/JBDAP/JBDAP-Node-Engine/raw/master/doc/img/tables.png)
 
 其设计遵循了几个基本原则：
 
@@ -436,7 +436,7 @@ where (
 )
 /**
  * WOW，看这个 SQL 语句，很牛逼的样子
- * 我打赌你一般用不到这么复杂的查询，但是 JBDAP-Node-Wrap 确实允许你无限写下去
+ * 我打赌你一般用不到这么复杂的查询，但是 JBDAP-Node-Engine 确实允许你无限写下去
  */
 ~~~
 
@@ -1071,7 +1071,7 @@ Response:
 
 ## 2.4 多指令任务
 
-前面我们进行了大量的演示，相信你已经可以直观的感受到 JBDAP-Node-Wrap 的特点，虽然之前所有的示例都具备一个共同点 —— 每一次请求只执行一个任务指令，但显然我们的能力不止于此，否则也就只是一个加强版的 Restful 而已，其实你从 JSON 对象的属性 commands 是一个数组就应该可以猜到，它支持一次任务请求执行多个指令。
+前面我们进行了大量的演示，相信你已经可以直观的感受到 JBDAP-Node-Engine 的特点，虽然之前所有的示例都具备一个共同点 —— 每一次请求只执行一个任务指令，但显然我们的能力不止于此，否则也就只是一个加强版的 Restful 而已，其实你从 JSON 对象的属性 commands 是一个数组就应该可以猜到，它支持一次任务请求执行多个指令。
 
 例如，现在我们要清理掉刚才创建的那个测试用户的所有信息，就应该先删除所有属于他的博文，然后再删掉用户信息，来试一下：
 

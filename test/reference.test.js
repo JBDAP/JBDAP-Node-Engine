@@ -1,7 +1,5 @@
 const reference = require('../src/reference')
 
-global.$i18nLanguage = 'zh-cn'
-
 test('测试 getObjFromObj 方法', () => {
     let data = {}
     let fields = '*'

@@ -5,6 +5,12 @@
 // 引入开发糖
 if (!global.NiceError) require('./global')
 
+// 准备 i18n 的默认环境（单元测试用）
+if (!global.$i18nLang) global.$i18nLang = 'zh-cn'
+if (!global.$throwError) global.$throwError = function(name,cause,info,dict) {
+    $throwErrorInLanguage(name,cause,info,dict,global.$i18nLang)
+}
+
 /**
  * 检查 JBDAP 描述 json 是否合法
  * @param {object} json 完整的 JBDAP 描述 json

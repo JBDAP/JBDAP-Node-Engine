@@ -5,6 +5,12 @@
 // 引入开发糖
 if (!global.NiceError) require('./global')
 
+// 准备 i18n 的默认环境（单元测试用）
+if (!global.$i18nLang) global.$i18nLang = 'zh-cn'
+if (!global.$throwError) global.$throwError = function(name,cause,info,dict) {
+    $throwErrorInLanguage(name,cause,info,dict,global.$i18nLang)
+}
+
 /**
  * 将 cmd 中的 fields 分类拆分
  * @param {object} fields 要解析的对象

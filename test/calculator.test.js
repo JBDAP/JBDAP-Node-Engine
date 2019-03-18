@@ -1,7 +1,5 @@
 const calculator = require('../src/calculator')
 
-global.$i18nLanguage = 'zh-cn'
-
 test('测试 calculate 方法', () => {
     // 模拟数据
     let parent = {

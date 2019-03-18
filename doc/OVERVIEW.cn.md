@@ -1,6 +1,6 @@
-# JBDAP-Node-Wrap 概览
+# JBDAP-Node-Engine 概览
 
-## **[English Version](https://github.com/JBDAP/JBDAP-Node-Wrap/blob/master/README.md)**
+## **[English Version](https://github.com/JBDAP/JBDAP-Node-Engine/blob/master/README.md)**
 
 <div id="nav" style="width:100%;height:1px;border:none;"></div>
 
@@ -10,7 +10,7 @@
 
 ## 一、这到底是个啥？
 
-**JBDAP-Node-Wrap** 是 **JBDAP** 的 nodejs 版官方实现，简单来说就是一个关系型数据库访问组件，帮助开发人员快速实现数据库相关应用的搭建，数据处理模块代码量有望减少 **70%** 以上。
+**JBDAP-Node-Engine** 是 **JBDAP** 的 nodejs 版官方实现，简单来说就是一个关系型数据库访问组件，帮助开发人员快速实现数据库相关应用的搭建，数据处理模块代码量有望减少 **70%** 以上。
 
 <div style="width:100%;height:20px;border:none;"></div>
 

@@ -1,12 +1,12 @@
-# JBDAP-Node-Wrap Document
+# JBDAP-Node-Engine Document
 
-## **[中文版介绍请戳这里](https://github.com/JBDAP/JBDAP-Node-Wrap/blob/master/README-CN.md)**
+## **[中文版介绍请戳这里](https://github.com/JBDAP/JBDAP-Node-Engine/blob/master/README-CN.md)**
 
 # 1. Introduction: 
 
-**JBDAP-Node-Wrap** is an official implementation (nodejs version) of **JBDAP**, it helps you to operate your relational database by defining a JSON object, it is simple, semantic, easy to use, and powerful, programmable, of course transaction-supported. If you prefer to go straight to the main point, then **[click here](#first)**, get yourself to the demo codes.
+**JBDAP-Node-Engine** is an official implementation (nodejs version) of **JBDAP**, it helps you to operate your relational database by defining a JSON object, it is simple, semantic, easy to use, and powerful, programmable, of course transaction-supported. If you prefer to go straight to the main point, then **[click here](#first)**, get yourself to the demo codes.
 
-It doesn't matter if you know nothing about **JBDAP** for now, let's find out what **JBDAP-Node-Wrap** can do first, then you will know whether it is your cup of tea.
+It doesn't matter if you know nothing about **JBDAP** for now, let's find out what **JBDAP-Node-Engine** can do first, then you will know whether it is your cup of tea.
 
 - It is a data access helper by which you can operate almost any kind of common relational database such as mysql, postgresql, sqlserver, sqlite, oracle, etc. *(No big deal, isn't it)*
 

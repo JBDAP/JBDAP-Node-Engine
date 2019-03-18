@@ -1,5 +1,5 @@
 /**
- * JBDAP-node-wrap 入口
+ * JBDAP-Node-Engine 入口
  */
 
 // 引入开发糖
