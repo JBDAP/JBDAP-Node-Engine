@@ -213,12 +213,12 @@ async function proceed(knex,doorman,scanner,commands,isTrans,root,logs,user) {
 async function handleCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,user,commands,level) {
     try {
         if (isTop === true) addLog(logs, [
-            ['zh-cn', `${prefix(level)}$ 开始执行顶层命令 /${cmd.name} (${cmd.type} 类型)`],
-            ['en-us', `${prefix(level)}$ Begin to handle top command /${cmd.name} ('${cmd.type}' type)`]
+            ['zh-cn', `${prefix(level)}$ 开始执行顶层命令 /${cmd.name} [${cmd.type} 类型]`],
+            ['en-us', `${prefix(level)}$ Begin to handle top command /${cmd.name} ['${cmd.type}' type]`]
         ])
         else addLog(logs, [
-            ['zh-cn', `${prefix(level)}@ 开始执行级联指令 /${cmd.name} (${cmd.type} 类型)`],
-            ['en-us', `${prefix(level)}@ Begin to handle cascaded command /${cmd.name} ('${cmd.type}' type)`]
+            ['zh-cn', `${prefix(level)}@ 开始执行级联指令 /${cmd.name} [${cmd.type} 类型]`],
+            ['en-us', `${prefix(level)}@ Begin to handle cascaded command /${cmd.name} ['${cmd.type}' type]`]
         ])
         // console.log('handleCmd',cmd.name)
         let result = null
@@ -275,29 +275,41 @@ async function handleCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,use
                 if (operations.indexOf(cmd.type) >= 0) {
                     // 将当前 cmd 改为 values 查询获取包含所有 id 的数组
                     let qCmd = _.cloneDeep(cmd)
-                    qCmd.type = 'values'
+                    qCmd.type = 'list'
                     // 只查询 id 字段
-                    qCmd.fields = ['pick#' + $primaryKey + '=>ids']
+                    qCmd.fields = ['*']
                     delete qCmd.data
-                    data = (await queryCmd(knex,trx,doorman,scanner,false,qCmd,parent,root,logs,user,commands,level)).ids
+                    data = (await queryCmd(knex,trx,doorman,scanner,false,qCmd,parent,root,logs,user,commands,level))
                     // console.log(data)
                 }
-                if (cmd.type === 'create') data = cmd.data
+                if (cmd.type === 'create') {
+                    if (_.isPlainObject(cmd.data)) cmd.data = [cmd.data]
+                }
+                if (cmd.type === 'update') {
+                    if (_.isArray(cmd.data)) cmd.data = cmd.data[0]
+                }
                 // 传给检验函数
                 let authorized = true
                 try {
-                    // 没有定义则生成一个
-                    if (_.isFunction(doorman)) authorized = await doorman(user,cmd,data)
+                    let queryTypes = [
+                        'list',
+                        'entity',
+                        'values'
+                    ]
+                    if (_.isFunction(doorman)) {
+                        // 操作类提前验证权限，查询类获得结果后再验证
+                        if (queryTypes.indexOf(cmd.type) < 0) authorized = await doorman(user,cmd,data,cmd.data)
+                    }
                 }
                 catch (err) {
                     $throwError('AuthError',err,null,[
-                        ['zh-cn', `没有权限执行当前指令 '${cmd.name}'`],
-                        ['en-us', `No authority to handle current command '${cmd.name}'`]
+                        ['zh-cn', `不被许可执行当前指令 '${cmd.name}'`],
+                        ['en-us', `No permission to handle current command '${cmd.name}'`]
                     ])
                 }
                 if (authorized === false) $throwError('AuthError',null,null,[
-                    ['zh-cn', `没有权限执行当前指令 '${cmd.name}'`],
-                    ['en-us', `No authority to handle current command '${cmd.name}'`]
+                    ['zh-cn', `不被许可执行当前指令 '${cmd.name}'`],
+                    ['en-us', `No permission to handle current command '${cmd.name}'`]
                 ])
             }
         }
@@ -530,12 +542,31 @@ async function queryCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,user
                 result = await query
             }
             // console.log('result',result)
-            // 5、敏感字段过滤
+            // 5、传给检验函数进行权限验证
+            let authorized = true
+            try {
+                if (_.isFunction(doorman)) {
+                    // 操作类提前验证权限，查询类获得结果后再验证
+                    authorized = await doorman(user,cmd,result,cmd.data)
+                }
+            }
+            catch (err) {
+                $throwError('AuthError',err,null,[
+                    ['zh-cn', `不被许可执行当前指令 '${cmd.name}'`],
+                    ['en-us', `No permission to handle current command '${cmd.name}'`]
+                ])
+            }
+            if (authorized === false) $throwError('AuthError',null,null,[
+                ['zh-cn', `不被许可执行当前指令 '${cmd.name}'`],
+                ['en-us', `No permission to handle current command '${cmd.name}'`]
+            ])
+            // 6、敏感字段过滤
+            // 在 values 计算前就进行过滤
             // 非引用类型才需要过滤
             if (cmd.target.indexOf('/') < 0) {
-                if (_.isFunction(scanner)) result = scanner(user,cmd,fields,result)
+                if (_.isFunction(scanner)) result = scanner(user,cmd,fields.raw,result)
             }
-            // 6、如果是 values 取值查询，则执行相应的数据处理
+            // 7、如果是 values 取值查询，则执行相应的数据处理
             if (cmd.type === 'values' && needList === true) {
                 if (valuesFields.length === 0) $throwError('FieldsDefError',null,null,[
                     ['zh-cn', `'values' 查询类型至少要定义一个取值字段`],
@@ -555,7 +586,7 @@ async function queryCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,user
             }
             // console.log('values',values)
         }
-        // 7、填充级联字段
+        // 8、填充级联字段
         if (cmd.type !== 'values') {
             for (let i=0; i<result.length; i++) {
                 // entity 只填充第一行

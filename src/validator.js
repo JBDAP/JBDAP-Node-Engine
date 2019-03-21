@@ -157,7 +157,7 @@ function checkCommand(cmd) {
             ['en-us',`The '${key}' property should not exist in '${cmd.type}' type commands`]
         ])
     }
-    if (cmd.type === 'create' || cmd.type === 'update') {
+    if (cmd.type === 'create' || cmd.type === 'update' || cmd.type === 'increase' || cmd.type === 'decrease') {
         // 创建或者更新命令
         key = 'data'
         if (_.isUndefined(cmd[key])) $throwError('PropMissingError',null,null,[
@@ -322,6 +322,19 @@ function checkData(type,data) {
         if (_.isString(data) && data === '') $throwError('PropEmptyError',null,null,[
             ['zh-cn',`属性 'data' 不能为空字符串`],
             ['en-us',`The 'data' Property can not be an empty String`]
+        ])
+        // 检查值是否数字
+        let valid = true
+        let fails = []
+        _.forEach(Object.keys(data), (key) => {
+            if (isNaN(parseFloat(data[key]))) {
+                fails.push(key)
+                valid = false
+            }
+        })
+        if (valid === false) $throwError('PropValueInvalidError',null,null,[
+            ['zh-cn',`字段 '${fails.join(',')}' 的值不是有效数字`],
+            ['en-us',`Values of fields '${fails.join(',')}' are not numbers`]
         ])
     }
     if (type === 'delete' && !_.isUndefined(data)) $throwError('PropSpilthError',null,null,[

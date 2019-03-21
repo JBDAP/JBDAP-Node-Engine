@@ -107,6 +107,7 @@ function parseFields(fields) {
             ['zh-cn',`请检查 'fields' 定义，* 不能与其它字段定义同时出现`],
             ['en-us',`Please check the 'fields' property, once you have a '*', other fields are not allowed to exist`]
         ])
+        // 只要含有 '*' 一律转字符串
         if (rawFields.indexOf('*') >= 0 && rawFields.length === 1) rawFields = '*'
         return {
             raw: rawFields,
@@ -142,7 +143,7 @@ function parseDataString(input) {
             ['zh-cn',`表达式 '${input}' 定义有误，':' 两侧都不能是空字符串`],
             ['en-us',`Expression '${input}' is invalid，empty String is not allowed in both left and right sides around ':'`]
         ])
-        if (parseFloat(slices[1]) === NaN) $throwError('DataValueInvalidError',null,null,[
+        if (isNaN(parseFloat(slices[1]))) $throwError('DataValueInvalidError',null,null,[
             ['zh-cn',`表达式 '${input}' 定义有误，'${slices[1]}' 不是有效数字`],
             ['en-us',`Expression '${input}' is invalid, '${slices[1]}' is not a number`]
         ])
