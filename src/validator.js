@@ -30,6 +30,10 @@ function checkJson(json){
         ['zh-cn',`属性 'needLogs' 必须是 Boolean 类型`],
         ['en-us',`The 'needLogs' property must be a Boolean`]
     ])
+    if (!_.isUndefined(json.needTrace) && !_.isBoolean(json.needTrace)) $throwError('PropTypeError',null,null,[
+        ['zh-cn',`属性 'needTrace' 必须是 Boolean 类型`],
+        ['en-us',`The 'needTrace' property must be a Boolean`]
+    ])
     if (!_.isUndefined(json.isTransaction) && !_.isBoolean(json.isTransaction)) $throwError('PropTypeError',null,null,[
         ['zh-cn',`属性 'isTransaction' 必须是 Boolean 类型`],
         ['en-us',`The 'isTransaction' property must be a Boolean`]

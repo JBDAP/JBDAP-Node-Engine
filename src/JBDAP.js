@@ -25,6 +25,10 @@ import parser from './parser'
 import calculator from './calculator'
 import reference from './reference'
 
+import { version } from '../package.json'
+module.exports.version = version
+module.exports.knex = global.knex
+
 /**
  * 解析并执行 json 中的指令
  * @param {object} knex 数据库连接对象
@@ -41,7 +45,8 @@ async function manipulate(knex,json,configs) {
         code: 200,
         message: 'ok',
         data: {},
-        logs: []
+        logs: [],
+        trace: ''
     }
     // 执行过程日志
     let logs = []
@@ -104,10 +109,6 @@ async function manipulate(knex,json,configs) {
             ['zh-cn', '- JBDAP 任务失败'],
             ['en-us', '- JBDAP task failed']
         ])
-        // $throwError('JBDAPTaskError',err,null,[
-        //     ['zh-cn','JBDAP 任务执行失败'],
-        //     ['en-us','JBDAP Task failed']
-        // ])
         // 根据错误提示来给出错误码
         returnObj.code = 500
         let msg = err.fullMessage()
@@ -121,12 +122,12 @@ async function manipulate(knex,json,configs) {
         returnObj.data = null
         if (json.needLogs !== true) delete returnObj.logs
         else returnObj.logs = logs
+        if (json.needTrace !== true) delete returnObj.trace
+        else returnObj.trace = err.fullStack()
         return returnObj
     }
 }
 module.exports.manipulate = manipulate
-import { version } from '../package.json'
-module.exports.version = version
 
 /**
  * 开始执行指令
@@ -298,7 +299,7 @@ async function handleCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,use
                     ]
                     if (_.isFunction(doorman)) {
                         // 操作类提前验证权限，查询类获得结果后再验证
-                        if (queryTypes.indexOf(cmd.type) < 0) authorized = await doorman(user,cmd,data,cmd.data)
+                        if (queryTypes.indexOf(cmd.type) < 0) authorized = await doorman(user,cmd,data)
                     }
                 }
                 catch (err) {

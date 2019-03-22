@@ -2,7 +2,7 @@
  * 常用加密模块
  */
 
-if (!global.NiceError) require('./global')
+const crypto = require('crypto')
 
 /**
  * sha256 加密
