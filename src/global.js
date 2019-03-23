@@ -9,9 +9,6 @@ global.EOL = EOL
 // 丰富原生 js
 import './makeup'
 
-// 使用 babel 打包时需要用到 polyfill
-import '@babel/polyfill'
-
 /**
  * 基于NiceError的一系列错误处理策略
  * 定义一个错误
