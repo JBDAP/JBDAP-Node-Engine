@@ -113,7 +113,7 @@ async function manipulate(knex,json,configs) {
         returnObj.code = 500
         let msg = err.fullMessage()
         // 参数定义错误
-        if (msg.indexOf('DefError]') >= 0 || msg.indexOf('TypeError]') >= 0 || msg.indexOf('MissingError]') >= 0 || msg.indexOf('EmptyError]') >= 0 || msg.indexOf('ValueInvalidError]') >= 0 || msg.indexOf('SpilthError]') >= 0){
+        if (msg.indexOf('DefError]') >= 0 || msg.indexOf('TypeError]') >= 0 || msg.indexOf('MissingError]') >= 0 || msg.indexOf('EmptyError]') >= 0 || msg.indexOf('ValueInvalidError]') >= 0 || msg.indexOf('SpilthError]') >= 0 || msg.indexOf('[SqlInjectionError]') >= 0){
             returnObj.code = 400
         }
         // 没有操作权限
@@ -686,7 +686,8 @@ async function executeCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,us
                 if (cmd.type === 'decrease') query = query.decrement(cmd.data)
             }
             else {
-                // 处理内置函数
+                // 执行内置函数
+                // 防 xss 处理
                 if (Object.prototype.toString.call(cmd.data) === '[object Object]') cmd.data = [cmd.data]
                 for (let i=0; i<cmd.data.length; i++) {
                     let item = cmd.data[i]
@@ -695,7 +696,13 @@ async function executeCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,us
                         let key = keys[j]
                         if (_.isString(item[key])) {
                             switch (item[key]) {
-                                case 'JBDAP.fn.ISODate': item[key] = new Date().toISOString()
+                                case 'JBDAP.fn.ISODate': {
+                                    item[key] = new Date().toISOString()
+                                    break
+                                }
+                                default: {
+                                    item[key] = validator.safeString(item[key])
+                                }
                             }
                         }
                     }
@@ -807,7 +814,13 @@ async function getSubConditionFunc(obj,type,cmd,parent,root,knex,trx,doorman,sca
                 // 先解析
                 let comparision = parser.parseComparision(key,value)
                 try {
-                    if (_.isString(comparision.right)) comparision.right = calculator.tag2value(comparision.right,parent,root,null)
+                    if (_.isString(comparision.right)) {
+                        comparision.right = calculator.tag2value(comparision.right,parent,root,null)
+                        if (validator.hasSqlInjection(comparision.right)) $throwError('SqlInjectionError',null,null,[
+                            ['zh-cn', `'where' 条件发现 sql 注入字符`],
+                            ['en-us', `Sql Injection characters found in 'where' conditions`]
+                        ])
+                    }
                 }
                 catch (err) {
                     if (err.name === 'Tag2ValueError' && err.fullMessage().indexOf('[TagRefNotFilled]') > 0) {

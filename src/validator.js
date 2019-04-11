@@ -5,6 +5,11 @@
 // 引入开发糖
 if (!global.NiceError) require('./global')
 
+// 引入 xss 模块
+const XSS = require('xss')
+const options = {}
+const xss = new XSS.FilterXSS(options)
+
 // 准备 i18n 的默认环境（单元测试用）
 if (!global.$i18nLang) global.$i18nLang = 'zh-cn'
 if (!global.$throwError) global.$throwError = function(name,cause,info,dict) {
@@ -348,3 +353,27 @@ function checkData(type,data) {
     return true
 }
 module.exports.checkData = checkData
+
+/**
+ * 对输入字符串进行防 xss 安全处理
+ * @param {string} str 要处理的字符串
+ */
+function safeString(str) {
+    if (!_.isString(str)) return str
+    return xss.process(str)
+}
+module.exports.safeString = safeString
+
+/**
+ * 检查字符串是否存在 sql 注入
+ * @param {string} str 要处理的字符串
+ */
+function hasSqlInjection(str) {
+    if (!_.isString(str)) return false
+    const sql = new RegExp("w*((%27)|('))((%6F)|o|(%4F))((%72)|r|(%52))", 'i')
+    const sqlMeta = new RegExp("(%27)|(')|(--)|(%23)|(#)", 'i')
+    const sqlMeta2 = new RegExp("(()|(=))[^\n]*((%27)|(')|(--)|(%3B)|(;))", 'i')
+    const sqlUnion = new RegExp("((%27)|('))union", 'i')
+    return sql.test(str) || sqlMeta.test(str) || sqlMeta2.test(str) || sqlUnion.test(str)
+}
+module.exports.hasSqlInjection = hasSqlInjection
