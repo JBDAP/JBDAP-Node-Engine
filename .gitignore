@@ -6,6 +6,7 @@ node_modules
 
 # 忽略 babel 编译后生成的 js
 /lib/
+/src_old/
 
 # yarn 相关
 yarn-error.log

@@ -3,56 +3,52 @@
  * 注意引用类型的指令集均不支持级联属性
  */
 
-// 引入开发糖
-if (!global.NiceError) require('./global')
+// 运行环境准备
+import { JS, JE } from './global'
 
 // 引入相关模块
 import parser from './parser'
 import calculator from './calculator'
 
-// 准备 i18n 的默认环境（单元测试用）
-if (!global.$i18nLang) global.$i18nLang = 'zh-cn'
-if (!global.$throwError) global.$throwError = function(name,cause,info,dict) {
-    $throwErrorInLanguage(name,cause,info,dict,global.$i18nLang)
-}
-
 /**
  * 从原始数据中过滤出需要的数据字段并返回
  * @param {object} data 原始 entity 数据
  * @param {string|array} rawFields 要获取的字段
+ * @param {string} lang 提示信息所用语言
  */
-function getObjFromObj(data,rawFields) {
+function getObjFromObj(data,rawFields,lang) {
+    if (JS._.isUndefined(lang)) lang = JE.i18nLang
     // data 类型和 fields 有效性无需验证，已经可以得到保证
     try {
         if (rawFields === '*') return data
         let result = {}
         let keys = Object.keys(data)
-        _.forEach(rawFields, (item) => {
+        JS._.forEach(rawFields, (item) => {
             // 字段名
-            if (_.isString(item)) {
-                if (keys.indexOf(item) < 0) $throwError('FieldNotExistError',null,null,[
+            if (JS._.isString(item)) {
+                if (keys.indexOf(item) < 0) JS.throwError('FieldNotExistError',null,null,[
                     ['zh-cn',`原始数据中不存在 '${item}' 字段`],
                     ['en-us',`Field '${item}' doesn't exist in raw data`]
-                ])
+                ],lang)
                 result[item] = data[item]
             }
             // 别名
-            if (_.isPlainObject(item)) {
+            if (JS._.isPlainObject(item)) {
                 let key = Object.keys(item)[0]
-                if (keys.indexOf(item[key]) < 0) $throwError('FieldNotExistError',null,null,[
+                if (keys.indexOf(item[key]) < 0) JS.throwError('FieldNotExistError',null,null,[
                     ['zh-cn',`原始数据中不存在 '${key}' 字段`],
                     ['en-us',`Field '${key}' doesn't exist in raw data`]
-                ])
+                ],lang)
                 result[key] = data[item[key]]
             }
         })
         return result
     }
     catch (err) {
-        $throwError('DealRefError',err,null,[
+        JS.throwError('DealRefError',err,null,[
             ['zh-cn',`单个对象属性筛选出错`],
             ['en-us',`Filtering fields from one Object failed`]
-        ])
+        ],lang)
     }
 }
 module.exports.getObjFromObj = getObjFromObj
@@ -65,15 +61,17 @@ module.exports.getObjFromObj = getObjFromObj
  * @param {string|array} rawFields 要获取的字段
  * @param {object} parent 父对象
  * @param {object} root 数据存储根对象
+ * @param {string} lang 提示信息所用语言
  */
-function getObjFromList(data,query,rawFields,parent,root) {
+function getObjFromList(data,query,rawFields,parent,root,lang) {
+    if (JS._.isUndefined(lang)) lang = JE.i18nLang
     // data 类型和 fields 有效性无需验证，已经可以得到保证
     try {
         // console.log('getObjFromList')
         let result = null
         if (data.length === 0) return null
-        if (!_.isUndefined(query)) {
-            if (!_.isUndefined(query.order)) {
+        if (!JS._.isUndefined(query)) {
+            if (!JS._.isUndefined(query.order)) {
                 // 进行数据排序
                 // 查询所需参数
                 let orderFields = []
@@ -82,16 +80,16 @@ function getObjFromList(data,query,rawFields,parent,root) {
                 let order = parser.parseOrder(query.order)
                 if (order.length > 0) {
                     // 构建排序条件
-                    _.forEach(order, (item) => {
+                    JS._.forEach(order, (item) => {
                         orderFields.push(item.column)
                         orderDirections.push(item.order)
                     })
                     // 进行排序
-                    data = _.orderBy(data,orderFields,orderDirections)
+                    data = JS._.orderBy(data,orderFields,orderDirections)
                     result = data[0]
                 }
             }
-            if (!_.isUndefined(query.where)) {
+            if (!JS._.isUndefined(query.where)) {
                 // 进行数据过滤（找到第一条符合条件的即可）
                 // 整理过滤条件对象
                 let whereObj = {}
@@ -103,7 +101,7 @@ function getObjFromList(data,query,rawFields,parent,root) {
                 for (let i=0; i<data.length; i++) {
                     let item = data[i]
                     if (calculator.checkCondition(whereObj,'and',parent,root,item) === true) {
-                        result = _.cloneDeep(item)
+                        result = JS._.cloneDeep(item)
                         break
                     }
                 }
@@ -112,7 +110,7 @@ function getObjFromList(data,query,rawFields,parent,root) {
             }
         }
         // 如果没有经过筛选则取第一条返回
-        else result = _.cloneDeep(data[0])
+        else result = JS._.cloneDeep(data[0])
         // 对字段进行过滤
         if (result != null) result = getObjFromObj(result,rawFields)
         // console.log(result)
@@ -120,10 +118,10 @@ function getObjFromList(data,query,rawFields,parent,root) {
     }
     catch (err) {
         // console.log(err.fullStack())
-        $throwError('DealRefError',err,null,[
+        JS.throwError('DealRefError',err,null,[
             ['zh-cn',`多条记录中筛选目标出错`],
             ['en-us',`Selecting one target from multiple records failed`]
-        ])
+        ],lang)
     }
 }
 module.exports.getObjFromList = getObjFromList
@@ -137,15 +135,17 @@ module.exports.getObjFromList = getObjFromList
  * @param {string|array} rawFields 要获取的字段
  * @param {object} parent 父对象
  * @param {object} root 数据存储根对象
+ * @param {string} lang 提示信息所用语言
  */
-function getListFromList(data,query,rawFields,parent,root) {
+function getListFromList(data,query,rawFields,parent,root,lang) {
+    if (JS._.isUndefined(lang)) lang = JE.i18nLang
     // data 类型和 fields 有效性无需验证，已经可以得到保证
     try {
         let result = []
         if (data.length === 0) return null
-        if (!_.isUndefined(query)) {
+        if (!JS._.isUndefined(query)) {
             // 先进行数据过滤
-            if (!_.isUndefined(query.where)) {
+            if (!JS._.isUndefined(query.where)) {
                 // 整理过滤条件对象
                 let whereObj = {}
                 if (Object.prototype.toString.call(query.where) === '[object Object]') {
@@ -156,15 +156,15 @@ function getListFromList(data,query,rawFields,parent,root) {
                 for (let i=0; i<data.length; i++) {
                     let item = data[i]
                     if (calculator.checkCondition(whereObj,'and',parent,root,item) === true) {
-                        result.push(_.cloneDeep(item))
+                        result.push(JS._.cloneDeep(item))
                     }
                 }
                 // 没有符合条件的直接返回 null
                 if (result == []) return null
             }
-            else result = _.cloneDeep(data)
+            else result = JS._.cloneDeep(data)
             // 再进行数据排序
-            if (!_.isUndefined(query.order)) {
+            if (!JS._.isUndefined(query.order)) {
                 // 查询所需参数
                 let orderFields = []
                 let orderDirections = []
@@ -172,12 +172,12 @@ function getListFromList(data,query,rawFields,parent,root) {
                 let order = parser.parseOrder(query.order)
                 if (order.length > 0) {
                     // 构建排序条件
-                    _.forEach(order, (item) => {
+                    JS._.forEach(order, (item) => {
                         orderFields.push(item.column)
                         orderDirections.push(item.order)
                     })
                     // 进行排序
-                    result = _.orderBy(result,orderFields,orderDirections)
+                    result = JS._.orderBy(result,orderFields,orderDirections)
                 }
             }
             // 数量控制
@@ -200,20 +200,20 @@ function getListFromList(data,query,rawFields,parent,root) {
             result = temp
         }
         // 没有经过筛选
-        else result = _.cloneDeep(data)
+        else result = JS._.cloneDeep(data)
         // 对字段进行过滤
         let ret = []
-        _.forEach(result, (item) => {
+        JS._.forEach(result, (item) => {
             ret.push(getObjFromObj(item,rawFields))
         })
         return ret
     }
     catch (err) {
         // console.log(err.fullStack())
-        $throwError('DealRefError',err,null,[
+        JS.throwError('DealRefError',err,null,[
             ['zh-cn',`多条记录中筛选多条记录出错`],
             ['en-us',`Selecting several records from multiple records failed`]
-        ])
+        ],lang)
     }
 }
 module.exports.getListFromList = getListFromList
@@ -222,13 +222,15 @@ module.exports.getListFromList = getListFromList
  * 对原始数据进行处理提取出需要的数据
  * @param {object} data 原始 list 数据
  * @param {string|array} valuesFields 要提取获取的字段
+ * @param {string} lang 提示信息所用语言
  */
-function getValuesFromList(data,valuesFields) {
+function getValuesFromList(data,valuesFields,lang) {
+    if (JS._.isUndefined(lang)) lang = JE.i18nLang
     try {
-        if (valuesFields.length === 0) $throwError('CmdDefError',null,null,[
+        if (valuesFields.length === 0) JS.throwError('CmdDefError',null,null,[
             ['zh-cn',`'values' 查询类型至少要定义一个取值字段`],
             ['en-us',`A 'values' type query needs one value field defined at least`]
-        ])
+        ],lang)
         let values = {}
         for (let i=0; i<valuesFields.length; i++) {
             // 传入查询结果进行处理
@@ -238,10 +240,10 @@ function getValuesFromList(data,valuesFields) {
         return values
     }
     catch (err) {
-        $throwError('DealRefError',err,null,[
+        JS.throwError('DealRefError',err,null,[
             ['zh-cn',`取值查询出错`],
             ['en-us',`Error occurred in this 'values' type query`]
-        ])
+        ],lang)
     }
 }
 module.exports.getValuesFromList = getValuesFromList

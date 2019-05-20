@@ -14,7 +14,7 @@ let json = {
             target: 'User',
             query: {
                 where: {
-                    username: 'user100'
+                    username: 'user101'
                 }
             },
             fields: 'id'
@@ -27,7 +27,7 @@ let json = {
                 '/userInfo#isNull': true
             },
             data: {
-                username: 'user100',
+                username: 'user101',
                 password: 'password111',
                 gender: 'female',
                 createdAt: 'JBDAP.fn.ISODate',

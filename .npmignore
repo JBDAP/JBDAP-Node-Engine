@@ -1,5 +1,6 @@
 # 忽略 src 源码
 /src/
+/src_old/
 
 # 忽略 demo
 /demo/

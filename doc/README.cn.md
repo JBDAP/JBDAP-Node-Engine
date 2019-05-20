@@ -1965,6 +1965,8 @@ SQL 及 Response 代码这里就不再贴了，没有区别。
 
 这样就一目了然了，因为你提交的 username 跟已有数据发生了冲突。
 
+如果你还想看到服务端的错误堆栈信息，给请求的 json 添加一个 needTrace: true 属性即可。
+
 [返回导航↑](#nav)
 
 <div style="width:100%;height:10px;border:none;"></div>

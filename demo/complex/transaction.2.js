@@ -5,6 +5,7 @@ const scanner = require('../scanner')
 const JBDAP = require('../../lib/JBDAP')
 
 let json = {
+    i18nLang: 'zh-cn',
     isTransaction: true,
     needLogs: true,
     commands: [
@@ -50,7 +51,7 @@ let json = {
 
 let config = {
     serverName: 'sqlite',
-    language: 'en-us',
+    language: 'zh-cn',
     recognizer: recognizer,
     doorman: doorman,
     scanner: scanner

@@ -18,7 +18,7 @@ let json = {
                 order: 'id#desc'
             },
             fields: [
-                'first#titles=>latestTitle',
+                'first#title=>latestTitle',
                 'pick#id=>blogIds',
                 'clone#id,title,content,hearts=>List'
             ]

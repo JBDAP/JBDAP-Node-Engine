@@ -5,7 +5,7 @@ const scanner = require('../scanner')
 const JBDAP = require('../../lib/JBDAP')
 
 let json = {
-    // needLogs: true,
+    needLogs: true,
     commands: [
         {
             name: 'userInfo',
