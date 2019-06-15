@@ -2,7 +2,7 @@
  * 初始化测试数据库
  */
 
-if (!global.NiceError) require('../lib/global')
+const { JS, JE } = require(process.cwd() + '/lib/global')
 
 // 获得对 knex 实例的引用
 const knex = require('knex')({
@@ -37,9 +37,11 @@ async function checkTable(name) {
                             console.log('- 数据表 [' + name + '] 创建成功')
                         }
                         catch (ex) {
-                            $throwError('DBSchemaError',ex,{
+                            JS.throwError('DBSchemaError',ex,{
                                 table: name
-                            },[['zh-cn', '数据表结构创建失败']])
+                            },[
+                                ['zh-cn','数据表结构创建失败']
+                            ],'zh-cn')
                         }
                     })
                 }
@@ -54,9 +56,11 @@ async function checkTable(name) {
                             console.log('- 数据表 [' + name + '] 创建成功')
                         }
                         catch (ex) {
-                            $throwError('DBSchemaError',ex,{
+                            JS.throwError('DBSchemaError',ex,{
                                 table: name
-                            },[['zh-cn', '数据表结构创建失败']])
+                            },[
+                                ['zh-cn','数据表结构创建失败']
+                            ],'zh-cn')
                         }
                     })
                 }
@@ -76,9 +80,11 @@ async function checkTable(name) {
                             console.log('- 数据表 [' + name + '] 创建成功')    
                         }
                         catch (ex) {
-                            $throwError('DBSchemaError',ex,{
+                            JS.throwError('DBSchemaError',ex,{
                                 table: name
-                            },[['zh-cn', '数据表结构创建失败']])
+                            },[
+                                ['zh-cn','数据表结构创建失败']
+                            ],'zh-cn')
                         }
                     })
                 }
@@ -96,9 +102,11 @@ async function checkTable(name) {
                             console.log('- 数据表 [' + name + '] 创建成功')    
                         }
                         catch (ex) {
-                            $throwError('DBSchemaError',ex,{
+                            JS.throwError('DBSchemaError',ex,{
                                 table: name
-                            },[['zh-cn', '数据表结构创建失败']])
+                            },[
+                                ['zh-cn','数据表结构创建失败']
+                            ],'zh-cn')
                         }
                     })
                 }
@@ -113,9 +121,11 @@ async function checkTable(name) {
                             console.log('- 数据表 [' + name + '] 创建成功')    
                         }
                         catch (ex) {
-                            $throwError('DBSchemaError',ex,{
+                            JS.throwError('DBSchemaError',ex,{
                                 table: name
-                            },[['zh-cn', '数据表结构创建失败']])
+                            },[
+                                ['zh-cn','数据表结构创建失败']
+                            ],'zh-cn')
                         }
                     })
                 }
@@ -131,9 +141,11 @@ async function checkTable(name) {
                             console.log('- 数据表 [' + name + '] 创建成功')
                         }
                         catch (ex) {
-                            $throwError('DBSchemaError',ex,{
+                            JS.throwError('DBSchemaError',ex,{
                                 table: name
-                            },[['zh-cn', '数据表结构创建失败']])
+                            },[
+                                ['zh-cn','数据表结构创建失败']
+                            ],'zh-cn')
                         }
                     })
                 }
@@ -149,16 +161,20 @@ async function checkTable(name) {
                             console.log('- 数据表 [' + name + '] 创建成功')
                         }
                         catch (ex) {
-                            $throwError('DBSchemaError',ex,{
+                            JS.throwError('DBSchemaError',ex,{
                                 table: name
-                            },[['zh-cn', '数据表结构创建失败']])
+                            },[
+                                ['zh-cn','数据表结构创建失败']
+                            ],'zh-cn')
                         }
                     })
                 }
                 default: {
-                    $throwError('DBSchemaError',ex,{
+                    JS.throwError('DBSchemaError',ex,{
                         table: name
-                    },[['zh-cn', '数据表结构未定义']])
+                    },[
+                        ['zh-cn','数据表结构创建失败']
+                    ],'zh-cn')
                 }
             }
         }
@@ -451,7 +467,7 @@ async function fillData() {
             let tokens = []
             for (let i=0; i<10; i++) {
                 tokens.push({
-                    token: crypto.sha256(Math.random().toString()),
+                    token: JS.cryptor.sha256(Math.random().toString()),
                     userId: Number.randomBetween(1,10),
                     roleId: Number.randomBetween(1,4),
                     expiresAt: new Date().addDays(365).toISOString(),
@@ -464,7 +480,9 @@ async function fillData() {
         console.log('测试数据填充成功')
     }
     catch (err) {
-        $throwError('DBError',ex,{},[['zh-cn', '测试数据填充出错了']])
+        JS.throwError('DBError',err,null,[
+            ['zh-cn','测试数据填充出错了']
+        ],'zh-cn')
     }
 }
 
@@ -486,7 +504,9 @@ async function init() {
         console.log('数据库初始化成功')
     }
     catch (err) {
-        $throwError('DBError',ex,{},[['zh-cn', '数据库初始化出错了']])
+        JS.throwError('DBError',err,null,[
+            ['zh-cn','数据库初始化出错了']
+        ],'zh-cn')
     }
 }
 

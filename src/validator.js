@@ -99,7 +99,8 @@ function checkCommand(cmd,lang) {
         'update',
         'delete',
         'increase',
-        'decrease'
+        'decrease',
+        'function'
     ]
     if (validCmds.indexOf(cmd[key]) < 0) JS.throwError('PropValueInvalidError',null,null,[
         ['zh-cn',`属性 '${key}' 的值 '${cmd[key]}' 不合法`],
@@ -164,7 +165,7 @@ function checkCommand(cmd,lang) {
             ['en-us',`The '${key}' property should not exist in '${cmd.type}' type commands`]
         ],lang)
     }
-    if (cmd.type === 'create' || cmd.type === 'update' || cmd.type === 'increase' || cmd.type === 'decrease') {
+    if (cmd.type === 'create' || cmd.type === 'update' || cmd.type === 'increase' || cmd.type === 'decrease' || cmd.type === 'function') {
         // 创建或者更新命令
         key = 'data'
         if (JS._.isUndefined(cmd[key])) JS.throwError('PropMissingError',null,null,[
@@ -207,6 +208,19 @@ function checkCommand(cmd,lang) {
         key = 'query'
         if (!JS._.isUndefined(cmd[key])) JS.throwError('PropSpilthError',null,null,[
             ['zh-cn',`属性 '${key}' 不应该出现在增删改指令中`],
+            ['en-us',`The '${key}' property should not exist in '${cmd.type}' type commands`]
+        ],lang)
+    }
+    if (cmd.type === 'function') {
+        // 服务端函数
+        key = 'query'
+        if (!JS._.isUndefined(cmd[key])) JS.throwError('PropSpilthError',null,null,[
+            ['zh-cn',`属性 '${key}' 不应该出现在服务端函数指令中`],
+            ['en-us',`The '${key}' property should not exist in '${cmd.type}' type commands`]
+        ],lang)
+        key = 'fields'
+        if (!JS._.isUndefined(cmd[key])) JS.throwError('PropSpilthError',null,null,[
+            ['zh-cn',`属性 '${key}' 不应该出现在服务端函数指令中`],
             ['en-us',`The '${key}' property should not exist in '${cmd.type}' type commands`]
         ],lang)
     }

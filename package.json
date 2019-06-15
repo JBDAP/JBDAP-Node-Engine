@@ -1,10 +1,12 @@
 {
   "name": "jbdap-engine",
-  "version": "0.2.2",
+  "version": "0.2.5",
   "description": "The official JBDAP implementation written in nodejs. ",
   "main": "index.js",
   "scripts": {
     "test": "jest",
+    "demo": "node ./demo/index",
+    "predemo": "yarn run build",
     "build": "babel src -d lib",
     "prepare": "yarn run build",
     "updependencies": "yarn upgrade jbdap-global@latest knex@latest xss@latest",
@@ -13,7 +15,7 @@
   "author": "JBDAP TEAM <jbdapteam@outlook.com>",
   "license": "GPL-3.0",
   "dependencies": {
-    "jbdap-global": "^0.1.3",
+    "jbdap-global": "^0.1.5",
     "knex": "^0.17.5",
     "xss": "^1.0.6"
   },
@@ -22,6 +24,7 @@
     "@babel/core": "^7.4.5",
     "@babel/preset-env": "^7.4.5",
     "jest": "^24.8.0",
+    "readline": "^1.3.0",
     "sqlite3": "^4.0.8"
   }
 }

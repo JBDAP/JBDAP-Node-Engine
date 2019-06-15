@@ -78,7 +78,7 @@ async function manipulate(knex,json,configs) {
             ['zh-cn', '- 开始处理接收到的指令'],
             ['en-us', '- Proceed to handle commands']
         ],lang)
-        await proceed(knex,configs.doorman,configs.scanner,commands,json.isTransaction,root,logs,user,lang)
+        await proceed(knex,configs.doorman,configs.scanner,configs.dispatcher,commands,json.isTransaction,root,logs,user,lang)
         addLog(logs, [
             ['zh-cn', '- 全部指令处理完成'],
             ['en-us', '- All commands handled successfully']
@@ -141,6 +141,7 @@ module.exports.manipulate = manipulate
  * @param {object} knex knex 实例
  * @param {function} doorman 权限控制模块
  * @param {function} scanner 字段加密模块
+ * @param {function} dispatcher 服务端函数执行器
  * @param {array} commands 指令集
  * @param {boolean} isTrans 是否事务
  * @param {object} root 数据存储根目录
@@ -148,7 +149,7 @@ module.exports.manipulate = manipulate
  * @param {object} user 当前用户身份信息
  * @param {string} lang 提示信息所用语言
  */
-async function proceed(knex,doorman,scanner,commands,isTrans,root,logs,user,lang) {
+async function proceed(knex,doorman,scanner,dispatcher,commands,isTrans,root,logs,user,lang) {
     if (JS._.isUndefined(lang)) lang = JE.i18nLang
     // 检查是否以事务执行
     if (isTrans === true) {
@@ -169,7 +170,7 @@ async function proceed(knex,doorman,scanner,commands,isTrans,root,logs,user,lang
                         ['zh-cn', `${prefix(1)}$ 开始执行顶层命令 /${cmd.name} [${cmd.type} 类型]`],
                         ['en-us', `${prefix(1)}$ Begin to handle top command /${cmd.name} ['${cmd.type}' type]`]
                     ],lang)
-                    await handleCmd(knex,trx,doorman,scanner,true,cmd,null,root,logs,user,commands,1,lang)
+                    await handleCmd(knex,trx,doorman,scanner,dispatcher,true,cmd,null,root,logs,user,commands,1,lang)
                     addLog(logs, [
                         ['zh-cn', `${prefix(1)}$ 顶层命令 /${cmd.name} 执行完毕`],
                         ['en-us', `${prefix(1)}$ Top command /${cmd.name} finished`]
@@ -209,7 +210,7 @@ async function proceed(knex,doorman,scanner,commands,isTrans,root,logs,user,lang
                     ['zh-cn', `${prefix(1)}$ 开始执行顶层命令 /${cmd.name} [${cmd.type} 类型]`],
                     ['en-us', `${prefix(1)}$ Begin to handle top command /${cmd.name} ['${cmd.type}' type]`]
                 ],lang)
-                await handleCmd(knex,null,doorman,scanner,true,cmd,null,root,logs,user,commands,1,lang)
+                await handleCmd(knex,null,doorman,scanner,dispatcher,true,cmd,null,root,logs,user,commands,1,lang)
                 addLog(logs, [
                     ['zh-cn', `${prefix(1)}$ 顶层命令 /${cmd.name} 执行完毕`],
                     ['en-us', `${prefix(1)}$ Top command /${cmd.name} finished`]
@@ -231,6 +232,7 @@ async function proceed(knex,doorman,scanner,commands,isTrans,root,logs,user,lang
  * @param {object} trx 事务对象
  * @param {function} doorman 权限控制模块
  * @param {function} scanner 字段加密模块
+ * @param {function} dispatcher 服务端函数执行器
  * @param {boolean} isTop 是否顶层指令
  * @param {object} cmd 单个指令
  * @param {object} parent 当前指令的父对象
@@ -241,14 +243,14 @@ async function proceed(knex,doorman,scanner,commands,isTrans,root,logs,user,lang
  * @param {integer} level 缩进层次
  * @param {string} lang 提示信息所用语言
  */
-async function handleCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,user,commands,level,lang) {
+async function handleCmd(knex,trx,doorman,scanner,dispatcher,isTop,cmd,parent,root,logs,user,commands,level,lang) {
     if (JS._.isUndefined(lang)) lang = JE.i18nLang
     try {
         // console.log('handleCmd',cmd.name)
         let result = null
         // 执行指令
-        // 1、检查缓存空间是否已经存在
         if (isTop) {
+            // 1、检查缓存空间是否已经存在
             if (Object.keys(root).indexOf(cmd.name) >= 0) {
                 addLog(logs, [
                     ['zh-cn', `${prefix(level)}$ /${cmd.name} 已经存在`],
@@ -264,7 +266,7 @@ async function handleCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,use
             }
         }
         // 2、检查 onlyIf 前置条件
-        let cr = await checkOnlyIf(cmd,parent,root,knex,trx,doorman,scanner,isTop,logs,user,commands,level,lang)
+        let cr = await checkOnlyIf(cmd,parent,root,knex,trx,doorman,scanner,dispatcher,isTop,logs,user,commands,level,lang)
         // console.log(cr)
         if (cr === false) {
             addLog(logs, [
@@ -298,7 +300,7 @@ async function handleCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,use
                     // 只查询 id 字段
                     qCmd.fields = ['*']
                     delete qCmd.data
-                    data = await queryCmd(knex,trx,doorman,scanner,false,qCmd,parent,root,logs,user,commands,level,lang)
+                    data = await queryCmd(knex,trx,doorman,scanner,dispatcher,false,qCmd,parent,root,logs,user,commands,level,lang)
                     // console.log(data)
                 }
                 if (cmd.type === 'create') {
@@ -335,7 +337,7 @@ async function handleCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,use
             case 'list':
             case 'values':
                 // 查询类指令
-                result = await queryCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,user,commands,level,lang)
+                result = await queryCmd(knex,trx,doorman,scanner,dispatcher,isTop,cmd,parent,root,logs,user,commands,level,lang)
                 break
             case 'create':
             case 'update':
@@ -343,7 +345,11 @@ async function handleCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,use
             case 'increase':
             case 'decrease':
                 // 操作类指令
-                result = await executeCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,user,commands,lang)
+                result = await executeCmd(knex,trx,doorman,scanner,dispatcher,isTop,cmd,parent,root,logs,user,commands,lang)
+                break
+            case 'function':
+                // 服务端函数
+                result = await executeFunction(knex,trx,doorman,scanner,dispatcher,isTop,cmd,parent,root,logs,user,commands,lang)
                 break
         }
         // 5、执行 after 定义的后续指令
@@ -364,7 +370,7 @@ async function handleCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,use
                     ['en-us', `${prefix(level+2)}$ Begin to handle command${i+1} /${afterCmd.name} ['${afterCmd.type}' type]`]
                 ],lang)
                 // 只执行不返回
-                let temp = await handleCmd(knex,trx,doorman,scanner,false,afterCmd,result,root,logs,user,commands,level+2,lang)
+                let temp = await handleCmd(knex,trx,doorman,scanner,dispatcher,false,afterCmd,result,root,logs,user,commands,level+2,lang)
                 // console.log(temp)
                 addLog(logs, [
                     ['zh-cn', `${prefix(level+2)}$ 指令${i+1} /${afterCmd.name} 执行完毕]`],
@@ -427,6 +433,7 @@ function prefix(n) {
  * @param {object} trx 事务对象
  * @param {function} doorman 权限控制模块
  * @param {function} scanner 字段加密模块
+ * @param {function} dispatcher 服务端函数执行器
  * @param {boolean} isTop 是否顶层指令
  * @param {object} cmd 单个指令
  * @param {object} parent 当前指令的父对象
@@ -437,7 +444,7 @@ function prefix(n) {
  * @param {integer} level 缩进层次
  * @param {string} lang 提示信息所用语言
  */
-async function queryCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,user,commands,level,lang) {
+async function queryCmd(knex,trx,doorman,scanner,dispatcher,isTop,cmd,parent,root,logs,user,commands,level,lang) {
     if (JS._.isUndefined(lang)) lang = JE.i18nLang
     // 查询类指令
     let result = null
@@ -466,7 +473,7 @@ async function queryCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,user
                         ['en-us', `${prefix(level+1)}$ Begin to handle top command /${command.name} ['${command.type}' type]`]
                     ],lang)
                     // 执行查询
-                    await handleCmd(knex,trx,doorman,scanner,isTop,command,parent,root,logs,user,commands,level+1,lang)
+                    await handleCmd(knex,trx,doorman,scanner,dispatcher,isTop,command,parent,root,logs,user,commands,level+1,lang)
                     addLog(logs, [
                         ['zh-cn', `${prefix(level+1)}$ 顶层命令 /${command.name} 执行完毕`],
                         ['en-us', `${prefix(level+1)}$ Top command /${command.name} finished`]
@@ -537,7 +544,7 @@ async function queryCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,user
             // 3、是否有定义查询规则
             if (!JS._.isUndefined(cmd.query)) {
                 // 3.1、解析 where
-                let func = await getWhereFunc(cmd,parent,root,knex,trx,doorman,scanner,isTop,logs,user,commands,level,lang)
+                let func = await getWhereFunc(cmd,parent,root,knex,trx,doorman,scanner,dispatcher,isTop,logs,user,commands,level,lang)
                 // console.log(func)
                 if (func !== null) query = eval('query.where(' + func + ')')
                 // 3.2、解析 order
@@ -598,7 +605,7 @@ async function queryCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,user
             // 在 values 计算前就进行过滤
             // 非引用类型才需要过滤
             if (cmd.target.indexOf('/') < 0) {
-                if (JS._.isFunction(scanner)) result = scanner(user,cmd,fields.raw,result,lang)
+                if (JS._.isFunction(scanner)) result = await scanner(user,cmd,fields.raw,result,lang)
             }
             // 7、如果是 values 取值查询，则执行相应的数据处理
             if (cmd.type === 'values' && needList === true) {
@@ -636,7 +643,7 @@ async function queryCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,user
                         // entity 只填充第一行
                         if (cmd.type === 'entity' && i > 0) break
                         let item = result[i]
-                        item[key] = await handleCmd(knex,trx,doorman,scanner,false,command,item,root,logs,user,commands,level+1,lang)
+                        item[key] = await handleCmd(knex,trx,doorman,scanner,dispatcher,false,command,item,root,logs,user,commands,level+1,lang)
                     }
                     addLog(logs, [
                         ['zh-cn', `${prefix(level+1)}$ 级联字段 [${key}] 填充完毕`],
@@ -675,6 +682,7 @@ async function queryCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,user
  * @param {object} trx 事务对象
  * @param {function} doorman 权限控制模块
  * @param {function} scanner 字段加密模块
+ * @param {function} dispatcher 服务端函数执行器
  * @param {boolean} isTop 是否顶层指令
  * @param {object} cmd 单个指令
  * @param {object} parent 当前指令的父对象
@@ -682,10 +690,9 @@ async function queryCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,user
  * @param {array} logs 日志
  * @param {object} user 当前用户身份信息
  * @param {array} commands 指令集
- * @param {integer} level 缩进层次
  * @param {string} lang 提示信息所用语言
  */
-async function executeCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,user,commands,lang) {
+async function executeCmd(knex,trx,doorman,scanner,dispatcher,isTop,cmd,parent,root,logs,user,commands,lang) {
     if (JS._.isUndefined(lang)) lang = JE.i18nLang
     // 查询类指令
     let result = null
@@ -699,7 +706,7 @@ async function executeCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,us
         else {
             // 数据表操作开始
             // 0、检查 query 是否合法
-            // 只有 create 不需要 where 查询条件
+            // 只有 create 不需要 query 查询属性
             if (cmd.type !== 'create') validator.checkQuery(cmd.query,lang)
             // 1、定位到数据表
             let query = knex(cmd.target)
@@ -707,7 +714,7 @@ async function executeCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,us
             // 2、是否有定义查询规则
             if (!JS._.isUndefined(cmd.query)) {
                 // 3.1、解析 where
-                let func = await getWhereFunc(cmd,parent,root,knex,trx,doorman,scanner,isTop,logs,user,commands,lang)
+                let func = await getWhereFunc(cmd,parent,root,knex,trx,doorman,scanner,dispatcher,isTop,logs,user,commands,lang)
                 if (func !== null) query = eval('query.where(' + func + ')')
                 // 3.2、解析 order
                 let order = parser.parseOrder(cmd.query.order,lang)
@@ -730,11 +737,14 @@ async function executeCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,us
                 if (cmd.type === 'decrease') query = query.decrement(cmd.data)
             }
             else {
-                // 执行内置函数
-                // 防 xss 处理
-                if (Object.prototype.toString.call(cmd.data) === '[object Object]') cmd.data = [cmd.data]
+                // 数据预处理
+                if (JS._.isPlainObject(cmd.data)) cmd.data = [cmd.data]
                 for (let i=0; i<cmd.data.length; i++) {
                     let item = cmd.data[i]
+                    // 自动填充 createdAt 和 updatedAt
+                    if (cmd.type === 'create' && !item.createdAt) item.createdAt = new Date().toISOString()
+                    if (!item.updatedAt) item.updatedAt = new Date().toISOString()
+                    // 执行内置函数，防 xss 处理
                     let keys = Object.keys(item)
                     for (let j=0; j<keys.length; j++) {
                         let key = keys[j]
@@ -752,7 +762,7 @@ async function executeCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,us
                     }
                 }
                 if (cmd.type === 'create') query = query.insert(cmd.data,[JE.primaryKey])
-                if (cmd.type === 'update') query = query.update(cmd.data,[JE.primaryKey])
+                if (cmd.type === 'update') query = query.update(cmd.data[0],[JE.primaryKey])
             }
             console.log('sql:',query.toString())
             result = await query
@@ -785,6 +795,7 @@ async function executeCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,us
  * @param {object} trx 事务对象
  * @param {function} doorman 权限控制模块
  * @param {function} scanner 字段加密模块
+ * @param {function} dispatcher 服务端函数执行器
  * @param {boolean} isTop 是否顶层指令
  * @param {array} logs 日志
  * @param {object} user 当前用户身份信息
@@ -792,14 +803,14 @@ async function executeCmd(knex,trx,doorman,scanner,isTop,cmd,parent,root,logs,us
  * @param {integer} level 缩进层次
  * @param {string} lang 提示信息所用语言
  */
-async function getWhereFunc(cmd,parent,root,knex,trx,doorman,scanner,isTop,logs,user,commands,level,lang) {
+async function getWhereFunc(cmd,parent,root,knex,trx,doorman,scanner,dispatcher,isTop,logs,user,commands,level,lang) {
     if (JS._.isUndefined(lang)) lang = JE.i18nLang
     if (JS._.isUndefined(cmd.query.where)) return null
     if (Object.prototype.toString(cmd.query.where) === '[object Object]' && Object.keys(cmd.query.where).length === 0) return null
     try {
         let where = {}
         if (Object.prototype.toString.call(cmd.query.where) === '[object Object]') where = cmd.query.where
-        let func = await getSubConditionFunc(where,'and',cmd,parent,root,knex,trx,doorman,scanner,isTop,logs,user,commands,level,lang)
+        let func = await getSubConditionFunc(where,'and',cmd,parent,root,knex,trx,doorman,scanner,dispatcher,isTop,logs,user,commands,level,lang)
         // console.log(func.toString())
         return func
     }
@@ -822,6 +833,7 @@ async function getWhereFunc(cmd,parent,root,knex,trx,doorman,scanner,isTop,logs,
  * @param {object} trx 事务对象
  * @param {function} doorman 权限控制模块
  * @param {function} scanner 字段加密模块
+ * @param {function} dispatcher 服务端函数执行器
  * @param {boolean} isTop 是否顶层指令
  * @param {array} logs 日志
  * @param {object} user 当前用户身份信息
@@ -829,7 +841,7 @@ async function getWhereFunc(cmd,parent,root,knex,trx,doorman,scanner,isTop,logs,
  * @param {integer} level 缩进层次
  * @param {string} lang 提示信息所用语言
  */
-async function getSubConditionFunc(obj,type,cmd,parent,root,knex,trx,doorman,scanner,isTop,logs,user,commands,level,lang) {
+async function getSubConditionFunc(obj,type,cmd,parent,root,knex,trx,doorman,scanner,dispatcher,isTop,logs,user,commands,level,lang) {
     if (JS._.isUndefined(lang)) lang = JE.i18nLang
     if (Object.prototype.toString.call(obj) !== '[object Object]') JS.throwError('WhereDefError',null,null,[
         ['zh-cn', `where 子查询条件不正确，'$${type}' 的值必须是 Object 类型`],
@@ -848,7 +860,7 @@ async function getSubConditionFunc(obj,type,cmd,parent,root,knex,trx,doorman,sca
             // 如果是子查询表达式
             if (key === '$or' || key === '$and' || key === '$not') {
                 // 构造子查询条件
-                let sub = await getSubConditionFunc(value,key.replace('$',''),cmd,parent,root,knex,trx,doorman,isTop,logs,user,commands,level,lang)
+                let sub = await getSubConditionFunc(value,key.replace('$',''),cmd,parent,root,knex,trx,doorman,scanner,dispatcher,isTop,logs,user,commands,level,lang)
                 let w = 'this.where'
                 if (type === 'not') w = w + 'Not'
                 if (i > 0) {
@@ -889,13 +901,13 @@ async function getSubConditionFunc(obj,type,cmd,parent,root,knex,trx,doorman,sca
                                 ['zh-cn', `${prefix(level+1)}$ 开始执行顶层命令 /${command.name} [${command.type} 类型]`],
                                 ['en-us', `${prefix(level+1)}$ Begin to handle top command /${command.name} ['${command.type}' type]`]
                             ],lang)
-                            await handleCmd(knex,trx,doorman,scanner,isTop,commands[idx],parent,root,logs,user,commands,level+1,lang)
+                            await handleCmd(knex,trx,doorman,scanner,dispatcher,isTop,commands[idx],parent,root,logs,user,commands,level+1,lang)
                             addLog(logs, [
                                 ['zh-cn', `${prefix(level+1)}$ 顶层命令 /${command.name} 执行完毕`],
                                 ['en-us', `${prefix(level+1)}$ Top command /${command.name} finished`]
                             ],lang)
                             // 然后重新执行 attchWhere
-                            return await getSubConditionFunc(obj,type,cmd,parent,root,knex,trx,doorman,scanner,isTop,logs,user,commands,level,lang)
+                            return await getSubConditionFunc(obj,type,cmd,parent,root,knex,trx,doorman,scanner,dispatcher,isTop,logs,user,commands,level,lang)
                         }
                         else JS.throwError('WhereDefError',null,null,[
                             ['zh-cn', `'where' 查询中的被引用对象 '/${ref}' 不存在于 commands 指令集中`],
@@ -1070,6 +1082,124 @@ async function getSubConditionFunc(obj,type,cmd,parent,root,knex,trx,doorman,sca
 }
 
 /**
+ * 执行单个服务端函数指令
+ * @param {object} knex knex实例
+ * @param {object} trx 事务对象
+ * @param {function} doorman 权限控制模块
+ * @param {function} scanner 字段加密模块
+ * @param {function} dispatcher 服务端函数执行器
+ * @param {boolean} isTop 是否顶层指令
+ * @param {object} cmd 单个指令
+ * @param {object} parent 当前指令的父对象
+ * @param {object} root 数据存储根目录
+ * @param {array} logs 日志
+ * @param {object} user 当前用户身份信息
+ * @param {array} commands 指令集
+ * @param {string} lang 提示信息所用语言
+ */
+async function executeFunction(knex,trx,doorman,scanner,dispatcher,isTop,cmd,parent,root,logs,user,commands,lang) {
+    if (JS._.isUndefined(lang)) lang = JE.i18nLang
+    // 服务端函数指令
+    try {
+        let result = null
+        // 判断指令类型
+        if (cmd.target.indexOf('/') >= 0) JS.throwError('TargetDefError',null,null,[
+            ['zh-cn', `服务端函数指令 'target' 不能是引用对象`],
+            ['en-us', `A referred object can not be the 'target' in server-side function commands`]
+        ],lang)
+        else {
+            // 调用 dispatcher 执行服务端函数
+            if (JS._.isFunction(dispatcher)) {
+                let data = cmd.data
+                // 检查 data 类型
+                if (!JS._.isPlainObject(data) && !JS._.isString(data)) JS.throwError('PropTypeError',null,null,[
+                    ['zh-cn',`对于 'function' 操作，属性 'data' 必须是 String|Object 类型`],
+                    ['en-us',`Property 'data' must be a String or an Object for 'function' type operations`]
+                ],lang)
+                try {
+                    // 如果必要的话给 data 赋值
+                    // string 类型
+                    if (JS._.isString(data) && data !== '') {
+                        cmd.data = calculator.tag2value(data,parent,root,null,lang)
+                        if (validator.hasSqlInjection(cmd.data)) JS.throwError('SqlInjectionError',null,null,[
+                            ['zh-cn', `发现 sql 注入字符`],
+                            ['en-us', `Sql Injection characters found`]
+                        ],lang)
+                    }
+                    if (JS._.isPlainObject(data) && Object.keys(data).length > 0) {
+                        let keys = Object.keys(data)
+                        for (let i=0; i<keys.length; i++) {
+                            let prop = data[keys[i]]
+                            if (JS._.isString(prop)) {
+                                cmd.data[keys[i]] = calculator.tag2value(prop,parent,root,null,lang)
+                                if (validator.hasSqlInjection(cmd.data[keys[i]])) JS.throwError('SqlInjectionError',null,null,[
+                                    ['zh-cn', `发现 sql 注入字符`],
+                                    ['en-us', `Sql Injection characters found`]
+                                ],lang)
+                            }
+                        }
+                    }
+                    // 执行函数
+                    result = await dispatcher(knex,trx,cmd.target,cmd.data,user,lang)
+                    // 如果是顶级指令则保存到 root
+                    if (isTop) root[cmd.name].data = result
+                    // 返回结果
+                    return result
+                }
+                catch (err) {
+                    if (err.name === 'Tag2ValueError' && err.fullMessage().indexOf('[TagRefNotFilled]') > 0) {
+                        // 发现尚未填充的引用对象
+                        // 这里要调用填充
+                        let ref = err.fullInfo().needRef
+                        // console.log(err.fullInfo())
+                        // 检查是否存在该 ref
+                        let idx = JS._.findIndex(commands,{ name: ref })
+                        if (idx >= 0) {
+                            // 存在与 ref 同名的指令
+                            // 执行查询
+                            // console.log(commands[idx])
+                            // 检查指令是否合法
+                            let command = commands[idx]
+                            validator.checkTopCommand(command,lang)
+                            addLog(logs, [
+                                ['zh-cn', `${prefix(level+1)}$ 开始执行顶层命令 /${command.name} [${command.type} 类型]`],
+                                ['en-us', `${prefix(level+1)}$ Begin to handle top command /${command.name} ['${command.type}' type]`]
+                            ],lang)
+                            await handleCmd(knex,trx,doorman,scanner,dispatcher,isTop,commands[idx],parent,root,logs,user,commands,level+1,lang)
+                            addLog(logs, [
+                                ['zh-cn', `${prefix(level+1)}$ 顶层命令 /${command.name} 执行完毕`],
+                                ['en-us', `${prefix(level+1)}$ Top command /${command.name} finished`]
+                            ],lang)
+                            // 然后重新执行
+                            return await executeFunction(knex,trx,doorman,scanner,dispatcher,isTop,cmd,parent,root,logs,user,commands,lang)
+                        }
+                        else JS.throwError('DefError',null,null,[
+                            ['zh-cn', `被引用对象 '/${ref}' 不存在于 commands 指令集中`],
+                            ['en-us', `The referred target '/${ref}' doesn't exist in commands`]
+                        ],lang)
+                    }
+                    else JS.throwError('ValueError',err,null,[
+                        ['zh-cn', `'data' 赋值出错`],
+                        ['en-us', `Error occurred while setting values for 'data'`]
+                    ],lang)
+                }
+            }
+            // 没有 dispatcher 函数则抛出错误
+            else JS.throwError('JBDAPConfigError',null,null,[
+                ['zh-cn', `服务器没有配置 dispatcher 调度器`],
+                ['en-us', `No 'dispatcher' was set to server, but some server-side functions were called`]
+            ],lang)
+        }
+    }
+    catch (err) {
+        JS.throwError('FunctionError',err,null,[
+            ['zh-cn', `执行服务端函数 '${cmd.name}' 出错`],
+            ['en-us', `Error occurred while executing server-side function '${cmd.name}'`]
+        ],lang)
+    }
+}
+
+/**
  * 前置条件是否成立
  * @param {object} cmd 单个指令
  * @param {object} parent 当前指令的父对象
@@ -1078,6 +1208,7 @@ async function getSubConditionFunc(obj,type,cmd,parent,root,knex,trx,doorman,sca
  * @param {object} trx 事务对象
  * @param {function} doorman 权限控制模块
  * @param {function} scanner 字段加密模块
+ * @param {function} dispatcher 服务端函数执行器
  * @param {boolean} isTop 是否顶层指令
  * @param {array} logs 日志
  * @param {object} user 当前用户身份信息
@@ -1085,7 +1216,7 @@ async function getSubConditionFunc(obj,type,cmd,parent,root,knex,trx,doorman,sca
  * @param {integer} level 缩进层次
  * @param {string} lang 提示信息所用语言
  */
-async function checkOnlyIf(cmd,parent,root,knex,trx,doorman,scanner,isTop,logs,user,commands,level,lang) {
+async function checkOnlyIf(cmd,parent,root,knex,trx,doorman,scanner,dispatcher,isTop,logs,user,commands,level,lang) {
     if (JS._.isUndefined(lang)) lang = JE.i18nLang
     try {
         // console.log('checkOnlyIf',cmd.name)
@@ -1112,13 +1243,13 @@ async function checkOnlyIf(cmd,parent,root,knex,trx,doorman,scanner,isTop,logs,u
                     ['en-us', `${prefix(level+1)}$ Begin to handle top command /${command.name} ['${command.type}' type]`]
                 ],lang)
                 // 执行查询
-                await handleCmd(knex,trx,doorman,scanner,isTop,commands[idx],parent,root,logs,user,commands,level+1,lang)
+                await handleCmd(knex,trx,doorman,scanner,dispatcher,isTop,commands[idx],parent,root,logs,user,commands,level+1,lang)
                 addLog(logs, [
                     ['zh-cn', `${prefix(level+1)}$ 顶层命令 /${command.name} 执行完毕`],
                     ['en-us', `${prefix(level+1)}$ Top command /${command.name} finished`]
                 ],lang)
                 // 然后重新执行 onlyIf 并返回
-                return await checkOnlyIf(cmd,parent,root,knex,trx,doorman,scanner,isTop,logs,user,commands,level,lang)
+                return await checkOnlyIf(cmd,parent,root,knex,trx,doorman,scanner,dispatcher,isTop,logs,user,commands,level,lang)
             }
             else JS.throwError('OnlyIfDefError',null,null,[
                 ['zh-cn', `'onlyIf' 条件中的被引用对象 '/${ref}' 不存在于 commands 指令集中`],

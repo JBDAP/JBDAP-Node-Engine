@@ -1,5 +1,6 @@
 
 const db = require('./database')
+const { JS, JE } = require(process.cwd() + '/lib/global')
 
 console.log('连接数据库')
 db.init()
@@ -11,7 +12,7 @@ db.init()
             process.exit()
         }
         catch (ex) {
-            $throwError('DBError',ex,{},[['zh-cn', '测试失败']])
+            JS.throwError('DBError',ex,null,[['zh-cn', '填充测试数据失败']],'zh-cn')
         }
     }).catch((err) => {
         console.log(err.fullStack())
