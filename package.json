@@ -1,6 +1,6 @@
 {
   "name": "jbdap-engine",
-  "version": "0.2.5",
+  "version": "0.2.15",
   "description": "The official JBDAP implementation written in nodejs. ",
   "main": "index.js",
   "scripts": {

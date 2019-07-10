@@ -742,8 +742,16 @@ async function executeCmd(knex,trx,doorman,scanner,dispatcher,isTop,cmd,parent,r
                 for (let i=0; i<cmd.data.length; i++) {
                     let item = cmd.data[i]
                     // 自动填充 createdAt 和 updatedAt
-                    if (cmd.type === 'create' && !item.createdAt) item.createdAt = new Date().toISOString()
-                    if (!item.updatedAt) item.updatedAt = new Date().toISOString()
+                    // 利用 knex 私有属性获得数据库连接类型
+                    let dbsvr = knex._context.client.config.client
+                    if (cmd.type === 'create' && !item.createdAt) {
+                        if (dbsvr === 'mysql') item.createdAt = (new Date()).dtString()
+                        else if (dbsvr.indexOf('sqlite') >= 0) item.createdAt = new Date().toISOString()
+                    }
+                    if (!item.updatedAt) {
+                        if (dbsvr === 'mysql') item.updatedAt = (new Date()).dtString()
+                        else if (dbsvr.indexOf('sqlite') >= 0) item.updatedAt = new Date().toISOString()
+                    }
                     // 执行内置函数，防 xss 处理
                     let keys = Object.keys(item)
                     for (let j=0; j<keys.length; j++) {
@@ -751,7 +759,8 @@ async function executeCmd(knex,trx,doorman,scanner,dispatcher,isTop,cmd,parent,r
                         if (JS._.isString(item[key])) {
                             switch (item[key]) {
                                 case 'JBDAP.fn.ISODate': {
-                                    item[key] = new Date().toISOString()
+                                    if (dbsvr === 'mysql') item[key] = (new Date()).dtString()
+                                    else if (dbsvr.indexOf('sqlite') >= 0) item[key] = new Date().toISOString()
                                     break
                                 }
                                 default: {
@@ -1140,7 +1149,7 @@ async function executeFunction(knex,trx,doorman,scanner,dispatcher,isTop,cmd,par
                         }
                     }
                     // 执行函数
-                    result = await dispatcher(knex,trx,cmd.target,cmd.data,user,lang)
+                    result = await dispatcher(user,knex,trx,cmd.target,cmd.data,lang)
                     // 如果是顶级指令则保存到 root
                     if (isTop) root[cmd.name].data = result
                     // 返回结果
