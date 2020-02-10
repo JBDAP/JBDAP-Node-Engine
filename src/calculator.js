@@ -126,15 +126,23 @@ function compare(comparision,parent,root,self,lang) {
                 return right.indexOf(left) >= 0
             case 'notIn':
                 return right.indexOf(left) < 0
-            case 'contain':
+            case 'contains':
                 return left.indexOf(right) >= 0
             case 'notContain':
                 return left.indexOf(right) < 0
-            case 'match':
+            case 'startsWith':
+                return left.indexOf(right) === 0
+            case 'notStartWith':
+                return left.indexOf(right) !== 0
+            case 'endsWith':
+                return left.indexOf(right) === left.length - right.length
+            case 'notEndWith':
+                return left.indexOf(right) !== left.length - right.length
+            case 'matches':
                 return left.search(right) >= 0
             case 'notMatch':
                 return left.search(right) < 0
-            case 'exist':
+            case 'exists':
                 return (left != '{NotExist}') == right
             case 'notExist':
                 return (left == '{NotExist}') == right
@@ -374,7 +382,7 @@ function getValue(list,obj,lang) {
                 }
             }
             case 'pick': {
-                if (list.length === 0) return null
+                if (list.length === 0) return []
                 let slices = obj.fields.split(',')
                 if (slices.length > 1) JS.throwError('FieldsDefError',null,null,[
                     ['zh-cn',`'${obj.operator}' 运算只接受一个字段`],

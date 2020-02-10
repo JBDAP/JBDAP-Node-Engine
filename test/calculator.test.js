@@ -72,36 +72,36 @@ test('测试 calculate 方法', () => {
         '$.pB.pBB': 'yes'   // true
     },'and',parent,root,null)).toEqual(true)
     expect(calculator.checkCondition({
-        '$.pB.pBD.pBDA#contain': '黄金' // false
+        '$.pB.pBD.pBDA#contains': '黄金' // false
     },'and',parent,root,null)).toEqual(false)
     // 简单 and 运算
     expect(calculator.checkCondition({
         '$.pB.pBB': 'yes',  // true
-        '$.pB.pBD.pBDA#contain': '黄金' // false
+        '$.pB.pBD.pBDA#contains': '黄金' // false
     },'and',parent,root,null)).toEqual(false)
     // 简单 or 运算
     expect(calculator.checkCondition({
         '$.pB.pBB': 'yes',  //true
-        '$.pB.pBD.pBDA#contain': '黄金' // false
+        '$.pB.pBD.pBDA#contains': '黄金' // false
     },'or',parent,root,null)).toEqual(true)
     // 简单 not 运算
     expect(calculator.checkCondition({
         '$.pB.pBB': 'yes',  // true
-        '$.pB.pBD.pBDA#contain': '黄金' // false
+        '$.pB.pBD.pBDA#contains': '黄金' // false
     },'not',parent,root,null)).toEqual(true)
     // 嵌套 and 和 or
     expect(calculator.checkCondition({
         '$.pB.pBB': 'yes',  // true
         '$or': {
             '/rA.pB.pBA#in': '$.pB.pBC',    // true
-            '$.pB.pBD.pBDA#contain': '黄金' // false
+            '$.pB.pBD.pBDA#contains': '黄金' // false
         }
     },'and',parent,root,null)).toEqual(true)
     // 深层嵌套
     expect(calculator.checkCondition({
         '$or': {
             '/rA.pB.pBA#in': '$.pB.pBC',    // true
-            '$.pB.pBD.pBDA#contain': '黄金' // false
+            '$.pB.pBD.pBDA#contains': '黄金' // false
         },
         '$.pB.pBB': 'yes',  // true
         '$not': {
@@ -231,7 +231,7 @@ test('测试 compare 方法', () => {
     },parent,root,null)).toEqual(true)
     expect(calculator.compare({
         left: '$.pB.pBD.pBDA',
-        operator: 'contain',
+        operator: 'contains',
         right: '爱情'
     },parent,root,null)).toEqual(true)
     // isUndefined 和 eq undefined 等效
@@ -253,7 +253,7 @@ test('测试 compare 方法', () => {
     },parent,root,null)).toEqual(true)
     expect(calculator.compare({
         left: '$.pB.pBD',
-        operator: 'exist',
+        operator: 'exists',
         right: true
     },parent,root,null)).toEqual(true)
     // null 值
@@ -281,7 +281,7 @@ test('测试 compare 方法', () => {
     // match
     expect(calculator.compare({
         left: '$.pB.pBD.pBDA',
-        operator: 'match',
+        operator: 'matches',
         right: /小说.*面包/
     },parent,root,null)).toEqual(true)
     expect(calculator.compare({

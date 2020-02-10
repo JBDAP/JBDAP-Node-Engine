@@ -78,7 +78,7 @@ async function manipulate(knex,json,configs) {
             ['zh-cn', '- 开始处理接收到的指令'],
             ['en-us', '- Proceed to handle commands']
         ],lang)
-        await proceed(knex,configs.doorman,configs.scanner,configs.dispatcher,commands,json.isTransaction,root,logs,user,lang)
+        await proceed(knex,configs.doorman,configs.scanner,configs.cacher,configs.dispatcher,commands,json.isTransaction,root,logs,user,lang)
         addLog(logs, [
             ['zh-cn', '- 全部指令处理完成'],
             ['en-us', '- All commands handled successfully']
@@ -110,27 +110,37 @@ async function manipulate(knex,json,configs) {
         ],lang)
         // 根据错误提示来给出错误码
         returnObj.code = 500
-        let msg = err.fullMessage()
-        // 参数定义错误
-        if (
-            msg.indexOf('DefError]') >= 0 
-            || msg.indexOf('TypeError]') >= 0 
-            || msg.indexOf('MissingError]') >= 0 
-            || msg.indexOf('EmptyError]') >= 0 
-            || msg.indexOf('ValueInvalidError]') >= 0 
-            || msg.indexOf('SpilthError]') >= 0 
-            || msg.indexOf('[SqlInjectionError]') >= 0
-        ){
-            returnObj.code = 400
+        if (err.fullMessage) {
+            let msg = err.fullMessage()
+            // 参数定义错误
+            if (
+                msg.indexOf('DefError]') >= 0 
+                || msg.indexOf('TypeError]') >= 0 
+                || msg.indexOf('MissingError]') >= 0 
+                || msg.indexOf('EmptyError]') >= 0 
+                || msg.indexOf('ValueInvalidError]') >= 0 
+                || msg.indexOf('SpilthError]') >= 0 
+                || msg.indexOf('[SqlInjectionError]') >= 0
+            ){
+                returnObj.code = 400
+            }
+            // 没有操作权限
+            if (msg.indexOf('[AuthError]') >= 0) returnObj.code = 403
+            returnObj.message = err.fullMessage()
+            returnObj.data = null
+            // 返回日志
+            if (json.needLogs === true) returnObj.logs = logs
+            // 返回错误堆栈信息跟踪
+            if (json.needTrace === true) returnObj.trace = err.fullStack()
         }
-        // 没有操作权限
-        if (msg.indexOf('[AuthError]') >= 0) returnObj.code = 403
-        returnObj.message = err.fullMessage()
-        returnObj.data = null
-        // 返回日志
-        if (json.needLogs === true) returnObj.logs = logs
-        // 返回错误堆栈信息跟踪
-        if (json.needTrace === true) returnObj.trace = err.fullStack()
+        else {
+            returnObj.message = err.toString()
+            returnObj.data = null
+            // 返回日志
+            if (json.needLogs === true) returnObj.logs = logs
+            // 返回错误堆栈信息跟踪
+            if (json.needTrace === true) returnObj.trace = err
+        }
         return returnObj
     }
 }
@@ -149,7 +159,7 @@ module.exports.manipulate = manipulate
  * @param {object} user 当前用户身份信息
  * @param {string} lang 提示信息所用语言
  */
-async function proceed(knex,doorman,scanner,dispatcher,commands,isTrans,root,logs,user,lang) {
+async function proceed(knex,doorman,scanner,cacher,dispatcher,commands,isTrans,root,logs,user,lang) {
     if (JS._.isUndefined(lang)) lang = JE.i18nLang
     // 检查是否以事务执行
     if (isTrans === true) {
@@ -170,7 +180,7 @@ async function proceed(knex,doorman,scanner,dispatcher,commands,isTrans,root,log
                         ['zh-cn', `${prefix(1)}$ 开始执行顶层命令 /${cmd.name} [${cmd.type} 类型]`],
                         ['en-us', `${prefix(1)}$ Begin to handle top command /${cmd.name} ['${cmd.type}' type]`]
                     ],lang)
-                    await handleCmd(knex,trx,doorman,scanner,dispatcher,true,cmd,null,root,logs,user,commands,1,lang)
+                    await handleCmd(knex,trx,doorman,scanner,cacher,dispatcher,true,cmd,null,root,logs,user,commands,1,lang)
                     addLog(logs, [
                         ['zh-cn', `${prefix(1)}$ 顶层命令 /${cmd.name} 执行完毕`],
                         ['en-us', `${prefix(1)}$ Top command /${cmd.name} finished`]
@@ -210,7 +220,7 @@ async function proceed(knex,doorman,scanner,dispatcher,commands,isTrans,root,log
                     ['zh-cn', `${prefix(1)}$ 开始执行顶层命令 /${cmd.name} [${cmd.type} 类型]`],
                     ['en-us', `${prefix(1)}$ Begin to handle top command /${cmd.name} ['${cmd.type}' type]`]
                 ],lang)
-                await handleCmd(knex,null,doorman,scanner,dispatcher,true,cmd,null,root,logs,user,commands,1,lang)
+                await handleCmd(knex,null,doorman,scanner,cacher,dispatcher,true,cmd,null,root,logs,user,commands,1,lang)
                 addLog(logs, [
                     ['zh-cn', `${prefix(1)}$ 顶层命令 /${cmd.name} 执行完毕`],
                     ['en-us', `${prefix(1)}$ Top command /${cmd.name} finished`]
@@ -243,7 +253,7 @@ async function proceed(knex,doorman,scanner,dispatcher,commands,isTrans,root,log
  * @param {integer} level 缩进层次
  * @param {string} lang 提示信息所用语言
  */
-async function handleCmd(knex,trx,doorman,scanner,dispatcher,isTop,cmd,parent,root,logs,user,commands,level,lang) {
+async function handleCmd(knex,trx,doorman,scanner,cacher,dispatcher,isTop,cmd,parent,root,logs,user,commands,level,lang) {
     if (JS._.isUndefined(lang)) lang = JE.i18nLang
     try {
         // console.log('handleCmd',cmd.name)
@@ -266,7 +276,7 @@ async function handleCmd(knex,trx,doorman,scanner,dispatcher,isTop,cmd,parent,ro
             }
         }
         // 2、检查 onlyIf 前置条件
-        let cr = await checkOnlyIf(cmd,parent,root,knex,trx,doorman,scanner,dispatcher,isTop,logs,user,commands,level,lang)
+        let cr = await checkOnlyIf(cmd,parent,root,knex,trx,doorman,scanner,cacher,dispatcher,isTop,logs,user,commands,level,lang)
         // console.log(cr)
         if (cr === false) {
             addLog(logs, [
@@ -300,7 +310,7 @@ async function handleCmd(knex,trx,doorman,scanner,dispatcher,isTop,cmd,parent,ro
                     // 只查询 id 字段
                     qCmd.fields = ['*']
                     delete qCmd.data
-                    data = await queryCmd(knex,trx,doorman,scanner,dispatcher,false,qCmd,parent,root,logs,user,commands,level,lang)
+                    data = await queryCmd(knex,trx,doorman,scanner,cacher,dispatcher,false,qCmd,parent,root,logs,user,commands,level,lang)
                     // console.log(data)
                 }
                 if (cmd.type === 'create') {
@@ -337,7 +347,7 @@ async function handleCmd(knex,trx,doorman,scanner,dispatcher,isTop,cmd,parent,ro
             case 'list':
             case 'values':
                 // 查询类指令
-                result = await queryCmd(knex,trx,doorman,scanner,dispatcher,isTop,cmd,parent,root,logs,user,commands,level,lang)
+                result = await queryCmd(knex,trx,doorman,scanner,cacher,dispatcher,isTop,cmd,parent,root,logs,user,commands,level,lang)
                 break
             case 'create':
             case 'update':
@@ -345,11 +355,11 @@ async function handleCmd(knex,trx,doorman,scanner,dispatcher,isTop,cmd,parent,ro
             case 'increase':
             case 'decrease':
                 // 操作类指令
-                result = await executeCmd(knex,trx,doorman,scanner,dispatcher,isTop,cmd,parent,root,logs,user,commands,lang)
+                result = await executeCmd(knex,trx,doorman,scanner,cacher,dispatcher,isTop,cmd,parent,root,logs,user,commands,lang)
                 break
             case 'function':
                 // 服务端函数
-                result = await executeFunction(knex,trx,doorman,scanner,dispatcher,isTop,cmd,parent,root,logs,user,commands,lang)
+                result = await executeFunction(knex,trx,doorman,scanner,cacher,dispatcher,isTop,cmd,parent,root,logs,user,commands,lang)
                 break
         }
         // 5、执行 after 定义的后续指令
@@ -370,7 +380,7 @@ async function handleCmd(knex,trx,doorman,scanner,dispatcher,isTop,cmd,parent,ro
                     ['en-us', `${prefix(level+2)}$ Begin to handle command${i+1} /${afterCmd.name} ['${afterCmd.type}' type]`]
                 ],lang)
                 // 只执行不返回
-                let temp = await handleCmd(knex,trx,doorman,scanner,dispatcher,false,afterCmd,result,root,logs,user,commands,level+2,lang)
+                let temp = await handleCmd(knex,trx,doorman,scanner,cacher,dispatcher,false,afterCmd,result,root,logs,user,commands,level+2,lang)
                 // console.log(temp)
                 addLog(logs, [
                     ['zh-cn', `${prefix(level+2)}$ 指令${i+1} /${afterCmd.name} 执行完毕]`],
@@ -444,7 +454,7 @@ function prefix(n) {
  * @param {integer} level 缩进层次
  * @param {string} lang 提示信息所用语言
  */
-async function queryCmd(knex,trx,doorman,scanner,dispatcher,isTop,cmd,parent,root,logs,user,commands,level,lang) {
+async function queryCmd(knex,trx,doorman,scanner,cacher,dispatcher,isTop,cmd,parent,root,logs,user,commands,level,lang) {
     if (JS._.isUndefined(lang)) lang = JE.i18nLang
     // 查询类指令
     let result = null
@@ -455,6 +465,13 @@ async function queryCmd(knex,trx,doorman,scanner,dispatcher,isTop,cmd,parent,roo
         let rawFields = fields.raw
         let cascadedFields = fields.cascaded
         let valuesFields = fields.values
+        let toolingTypes = [
+            'first',
+            'pick',
+            'clone',
+        ]
+        // values 计算存在不能使用 sql 函数得到结果的查询时，就必须查出所有数据
+        let needList = JS._.findIndex(valuesFields, (item) => { return toolingTypes.indexOf(item.operator) >= 0 }) >= 0
         // 判断查询类型 [引用|读表]
         if (cmd.target.indexOf('/') === 0) {
             // 引用查询开始 ==>
@@ -473,7 +490,7 @@ async function queryCmd(knex,trx,doorman,scanner,dispatcher,isTop,cmd,parent,roo
                         ['en-us', `${prefix(level+1)}$ Begin to handle top command /${command.name} ['${command.type}' type]`]
                     ],lang)
                     // 执行查询
-                    await handleCmd(knex,trx,doorman,scanner,dispatcher,isTop,command,parent,root,logs,user,commands,level+1,lang)
+                    await handleCmd(knex,trx,doorman,scanner,cacher,dispatcher,isTop,command,parent,root,logs,user,commands,level+1,lang)
                     addLog(logs, [
                         ['zh-cn', `${prefix(level+1)}$ 顶层命令 /${command.name} 执行完毕`],
                         ['en-us', `${prefix(level+1)}$ Top command /${command.name} finished`]
@@ -523,64 +540,72 @@ async function queryCmd(knex,trx,doorman,scanner,dispatcher,isTop,cmd,parent,roo
         }
         else {
             // 数据表查询开始 ==>
-            // 0、检查 query 是否合法
+            // 检查 query 是否合法
             validator.checkQuery(cmd.query,lang)
-            // 1、定位到数据表
-            let query = knex.from(cmd.target)
-            if (trx !== null) query = trx(cmd.target)
-            // 2、设定要查询的原始字段
-            // 能够使用 sql 函数的计算类型
-            let toolingTypes = [
-                'first',
-                'pick',
-                'clone',
-            ]
-            // values 计算存在不能使用 sql 函数得到结果的查询时，就必须查出所有数据
-            let needList = JS._.findIndex(valuesFields, (item) => { return toolingTypes.indexOf(item.operator) >= 0 }) >= 0
-            if (cmd.type !== 'values' || (cmd.type === 'values' && needList)) {
-                if (rawFields === '*') query = query.select()
-                else query = query.column(rawFields).select()
-            }
-            // 3、是否有定义查询规则
-            if (!JS._.isUndefined(cmd.query)) {
-                // 3.1、解析 where
-                let func = await getWhereFunc(cmd,parent,root,knex,trx,doorman,scanner,dispatcher,isTop,logs,user,commands,level,lang)
-                // console.log(func)
-                if (func !== null) query = eval('query.where(' + func + ')')
-                // 3.2、解析 order
-                let order = parser.parseOrder(cmd.query.order,lang)
-                if (order.length > 0) query = query.orderBy(order)
-                // 3.3、解析 size 和 page
-                let pas = parser.parseOffsetAndLimit(cmd.query.page,cmd.query.size,lang)
-                // 取有限记录
-                if (pas.limit > 0) query = query.limit(pas.limit)
-                // 有翻页
-                if (pas.offset > 0) query = query.offset(pas.offset)
-            }
-            // 4、执行查询
-            // 只用 sql 函数就可以实现的 values 查询
-            if (cmd.type === 'values' && needList === false) {
-                if (valuesFields.length === 0) JS.throwError('FieldsDefError',null,null,[
-                    ['zh-cn', `'values' 查询类型至少要定义一个取值字段`],
-                    ['en-us', `Queries of type 'values' require at least one value field`]
-                ],lang)
-                for (let i=0; i<valuesFields.length; i++) {
-                    // 传入查询结果进行处理
-                    let item = valuesFields[i]
-                    let slices = item.fields.split(',')
-                    if (slices.length > 1) JS.throwError('FieldsDefError',null,null,[
-                        ['zh-cn', `'${item.operator}' 运算只接受一个字段`],
-                        ['en-us', `Calculations of type '${item.operator}' accept only one field`]
-                    ],lang)
-                    query = eval(`query.${item.operator}({ ${item.name}: '${slices[0]}' })`)
+            // 0、尝试从缓存读取
+            // 提前解析 where，因为 where 才最终体现查询内容
+            let func = await getWhereFunc(cmd,parent,root,knex,trx,doorman,scanner,cacher,dispatcher,isTop,logs,user,commands,level,lang)
+            let cmdCopy = JS._.clone(cmd)
+            cmdCopy.whereFunc = func
+            if (JS._.isFunction(cacher)) {
+                // 取值
+                let cache = cacher('get',cmdCopy)
+                // 缓存命中
+                if (cache !== null) result = cache
+                // 没命中则查询表
+                else {
+                    // 1、定位到数据表
+                    let query = knex.from(cmd.target)
+                    if (trx !== null) query = trx(cmd.target)
+                    // 2、设定要查询的原始字段
+                    // 能够使用 sql 函数的计算类型
+                    if (cmd.type !== 'values' || (cmd.type === 'values' && needList)) {
+                        if (rawFields === '*') query = query.select()
+                        else query = query.column(rawFields).select()
+                    }
+                    // 3、是否有定义查询规则
+                    if (!JS._.isUndefined(cmd.query)) {
+                        // 3.1 检查 where 内容
+                        // console.log(func)
+                        if (func !== null) query = eval('query.where(' + func + ')')
+                        // 3.2、解析 order
+                        let order = parser.parseOrder(cmd.query.order,lang)
+                        if (order.length > 0) query = query.orderBy(order)
+                        // 3.3、解析 size 和 page
+                        let pas = parser.parseOffsetAndLimit(cmd.query.page,cmd.query.size,lang)
+                        // 取有限记录
+                        if (pas.limit > 0) query = query.limit(pas.limit)
+                        // 有翻页
+                        if (pas.offset > 0) query = query.offset(pas.offset)
+                    }
+                    // 4、执行查询
+                    // 只用 sql 函数就可以实现的 values 查询
+                    if (cmd.type === 'values' && needList === false) {
+                        if (valuesFields.length === 0) JS.throwError('FieldsDefError',null,null,[
+                            ['zh-cn', `'values' 查询类型至少要定义一个取值字段`],
+                            ['en-us', `Queries of type 'values' require at least one value field`]
+                        ],lang)
+                        for (let i=0; i<valuesFields.length; i++) {
+                            // 传入查询结果进行处理
+                            let item = valuesFields[i]
+                            let slices = item.fields.split(',')
+                            if (slices.length > 1) JS.throwError('FieldsDefError',null,null,[
+                                ['zh-cn', `'${item.operator}' 运算只接受一个字段`],
+                                ['en-us', `Calculations of type '${item.operator}' accept only one field`]
+                            ],lang)
+                            query = eval(`query.${item.operator}({ ${item.name}: '${slices[0]}' })`)
+                        }
+                        console.log('sql:',query.toString())
+                        let list = await query
+                        result = list[0]
+                    }
+                    else {
+                        console.log('sql:',query.toString())
+                        result = await query
+                    }
+                    // 存入缓存
+                    if (JS._.isFunction(cacher)) cacher('set',cmdCopy,result)
                 }
-                console.log('sql:',query.toString())
-                let list = await query
-                result = list[0]
-            }
-            else {
-                console.log('sql:',query.toString())
-                result = await query
             }
             // console.log('result',result)
             // 5、传给检验函数进行权限验证
@@ -643,7 +668,7 @@ async function queryCmd(knex,trx,doorman,scanner,dispatcher,isTop,cmd,parent,roo
                         // entity 只填充第一行
                         if (cmd.type === 'entity' && i > 0) break
                         let item = result[i]
-                        item[key] = await handleCmd(knex,trx,doorman,scanner,dispatcher,false,command,item,root,logs,user,commands,level+1,lang)
+                        item[key] = await handleCmd(knex,trx,doorman,scanner,cacher,dispatcher,false,command,item,root,logs,user,commands,level+1,lang)
                     }
                     addLog(logs, [
                         ['zh-cn', `${prefix(level+1)}$ 级联字段 [${key}] 填充完毕`],
@@ -692,7 +717,7 @@ async function queryCmd(knex,trx,doorman,scanner,dispatcher,isTop,cmd,parent,roo
  * @param {array} commands 指令集
  * @param {string} lang 提示信息所用语言
  */
-async function executeCmd(knex,trx,doorman,scanner,dispatcher,isTop,cmd,parent,root,logs,user,commands,lang) {
+async function executeCmd(knex,trx,doorman,scanner,cacher,dispatcher,isTop,cmd,parent,root,logs,user,commands,lang) {
     if (JS._.isUndefined(lang)) lang = JE.i18nLang
     // 查询类指令
     let result = null
@@ -714,7 +739,7 @@ async function executeCmd(knex,trx,doorman,scanner,dispatcher,isTop,cmd,parent,r
             // 2、是否有定义查询规则
             if (!JS._.isUndefined(cmd.query)) {
                 // 3.1、解析 where
-                let func = await getWhereFunc(cmd,parent,root,knex,trx,doorman,scanner,dispatcher,isTop,logs,user,commands,lang)
+                let func = await getWhereFunc(cmd,parent,root,knex,trx,doorman,scanner,cacher,dispatcher,isTop,logs,user,commands,lang)
                 if (func !== null) query = eval('query.where(' + func + ')')
                 // 3.2、解析 order
                 let order = parser.parseOrder(cmd.query.order,lang)
@@ -775,6 +800,9 @@ async function executeCmd(knex,trx,doorman,scanner,dispatcher,isTop,cmd,parent,r
             }
             console.log('sql:',query.toString())
             result = await query
+            // 清理缓存
+            if (JS._.isFunction(cacher)) cacher('clear',cmd)
+            // 拼组结果
             result = {
                 dbServer: JE.dbServer,
                 return: result
@@ -812,14 +840,14 @@ async function executeCmd(knex,trx,doorman,scanner,dispatcher,isTop,cmd,parent,r
  * @param {integer} level 缩进层次
  * @param {string} lang 提示信息所用语言
  */
-async function getWhereFunc(cmd,parent,root,knex,trx,doorman,scanner,dispatcher,isTop,logs,user,commands,level,lang) {
+async function getWhereFunc(cmd,parent,root,knex,trx,doorman,scanner,cacher,dispatcher,isTop,logs,user,commands,level,lang) {
     if (JS._.isUndefined(lang)) lang = JE.i18nLang
     if (JS._.isUndefined(cmd.query.where)) return null
     if (Object.prototype.toString(cmd.query.where) === '[object Object]' && Object.keys(cmd.query.where).length === 0) return null
     try {
         let where = {}
         if (Object.prototype.toString.call(cmd.query.where) === '[object Object]') where = cmd.query.where
-        let func = await getSubConditionFunc(where,'and',cmd,parent,root,knex,trx,doorman,scanner,dispatcher,isTop,logs,user,commands,level,lang)
+        let func = await getSubConditionFunc(where,'and',cmd,parent,root,knex,trx,doorman,scanner,cacher,dispatcher,isTop,logs,user,commands,level,lang)
         // console.log(func.toString())
         return func
     }
@@ -850,7 +878,7 @@ async function getWhereFunc(cmd,parent,root,knex,trx,doorman,scanner,dispatcher,
  * @param {integer} level 缩进层次
  * @param {string} lang 提示信息所用语言
  */
-async function getSubConditionFunc(obj,type,cmd,parent,root,knex,trx,doorman,scanner,dispatcher,isTop,logs,user,commands,level,lang) {
+async function getSubConditionFunc(obj,type,cmd,parent,root,knex,trx,doorman,scanner,cacher,dispatcher,isTop,logs,user,commands,level,lang) {
     if (JS._.isUndefined(lang)) lang = JE.i18nLang
     if (Object.prototype.toString.call(obj) !== '[object Object]') JS.throwError('WhereDefError',null,null,[
         ['zh-cn', `where 子查询条件不正确，'$${type}' 的值必须是 Object 类型`],
@@ -867,16 +895,22 @@ async function getSubConditionFunc(obj,type,cmd,parent,root,knex,trx,doorman,sca
             let value = obj[key]
             // key 的处理
             // 如果是子查询表达式
-            if (key === '$or' || key === '$and' || key === '$not') {
+            if (key.indexOf('$') === 0) {
                 // 构造子查询条件
-                let sub = await getSubConditionFunc(value,key.replace('$',''),cmd,parent,root,knex,trx,doorman,scanner,dispatcher,isTop,logs,user,commands,level,lang)
-                let w = 'this.where'
-                if (type === 'not') w = w + 'Not'
-                if (i > 0) {
-                    if (type !== 'not') w = w.replace('this.where','.' + type + 'Where')
-                    else  w = '.andWhereNot'
+                let subType = key.split('$')[1]
+                let subContent = await getSubConditionFunc(value,subType,cmd,parent,root,knex,trx,doorman,scanner,cacher,dispatcher,isTop,logs,user,commands,level,lang)
+                let func = ''
+                if (i===0) {
+                    if (type==='and' || type==='or') func = `this.where({content})`
+                    if (type==='not') func = `this.whereNot({content})`
                 }
-                funcDefine += `${w}(${sub})`
+                else {
+                    if (type==='and') func = `.andWhere({content})`
+                    if (type==='or') func = `.orWhere({content})`
+                    if (type==='not') func = `.whereNot({content})`
+                }
+                let itemStr = func.replace('{content}',subContent)
+                funcDefine += itemStr
             }
             // 单项表达式
             else {
@@ -910,20 +944,20 @@ async function getSubConditionFunc(obj,type,cmd,parent,root,knex,trx,doorman,sca
                                 ['zh-cn', `${prefix(level+1)}$ 开始执行顶层命令 /${command.name} [${command.type} 类型]`],
                                 ['en-us', `${prefix(level+1)}$ Begin to handle top command /${command.name} ['${command.type}' type]`]
                             ],lang)
-                            await handleCmd(knex,trx,doorman,scanner,dispatcher,isTop,commands[idx],parent,root,logs,user,commands,level+1,lang)
+                            await handleCmd(knex,trx,doorman,scanner,cacher,dispatcher,isTop,commands[idx],parent,root,logs,user,commands,level+1,lang)
                             addLog(logs, [
                                 ['zh-cn', `${prefix(level+1)}$ 顶层命令 /${command.name} 执行完毕`],
                                 ['en-us', `${prefix(level+1)}$ Top command /${command.name} finished`]
                             ],lang)
                             // 然后重新执行 attchWhere
-                            return await getSubConditionFunc(obj,type,cmd,parent,root,knex,trx,doorman,scanner,dispatcher,isTop,logs,user,commands,level,lang)
+                            return await getSubConditionFunc(obj,type,cmd,parent,root,knex,trx,doorman,scanner,cacher,dispatcher,isTop,logs,user,commands,level,lang)
                         }
                         else JS.throwError('WhereDefError',null,null,[
                             ['zh-cn', `'where' 查询中的被引用对象 '/${ref}' 不存在于 commands 指令集中`],
                             ['en-us', `The referred target '/${ref}' in 'where' conditions doesn't exist in commands`]
                         ],lang)
                     }
-                    else JS.throwError('WhereValueError',null,null,[
+                    else JS.throwError('WhereValueError',err,null,[
                         ['zh-cn', `'where' 条件赋值出错`],
                         ['en-us', `Error occurred while setting values for 'where' conditions`]
                     ],lang)
@@ -932,143 +966,349 @@ async function getSubConditionFunc(obj,type,cmd,parent,root,knex,trx,doorman,sca
                 let left = comparision.left, right = comparision.right, operator = comparision.operator
                 switch (operator) {
                     case 'eq': {
-                        let w = 'this.where'
-                        if (type === 'not') w = w + 'Not'
-                        if (i > 0) {
-                            if (type !== 'not') w = w.replace('this.where','.' + type + 'Where')
-                            else  w = '.andWhereNot'
+                        // 第一项
+                        let func = ''
+                        if (i === 0) {
+                            // 根据上层定义的关系来生成连接词
+                            if (type==='and' || type==='or') func = `this.where({'{left}':{right}})`
+                            if (type==='not') func = `this.whereNot({'{left}':{right}})`
                         }
-                        funcDefine += `${w}({'${left}': ${JSON.stringify(right)}})`
+                        else {
+                            if (type==='and') func = `.andWhere({'{left}':{right}})`
+                            if (type==='or') func = `.orWhere({'{left}':{right}})`
+                            if (type==='not') func = `.whereNot({'{left}':{right}})`
+                        }
+                        let itemStr = func.replace('{left}',left).replace('{right}',JSON.stringify(right))
+                        funcDefine += itemStr
                         break
                     }
                     case 'ne':{
-                        let w = 'this.whereNot'
-                        if (type === 'not') w = w.replace('Not','')
-                        if (i > 0) {
-                            if (type !== 'not') w = w.replace('this.where','.' + type + 'Where')
-                            else  w = '.andWhere'
+                        // 第一项
+                        let func = ''
+                        if (i === 0) {
+                            // 根据上层定义的关系来生成连接词
+                            if (type==='and' || type==='or') func = `this.whereNot({'{left}':{right}})`
+                            if (type==='not') func = `this.where({'{left}':{right}})`
                         }
-                        funcDefine += `${w}({'${left}': ${JSON.stringify(right)}})`
+                        else {
+                            if (type==='and') func = `.andWhere(function(){this.whereNot('{left}',{right})})`
+                            if (type==='or') func = `.orWhere(function(){this.whereNot('{left}',{right})})`
+                            if (type==='not') func = `.where('{left}',{right})`
+                        }
+                        let itemStr = func.replace('{left}',left).replace('{right}',JSON.stringify(right))
+                        funcDefine += itemStr
                         break
                     }
                     case 'gte': {
-                        let w = 'this.where'
-                        if (type === 'not') w = w + 'Not'
-                        if (i > 0) {
-                            if (type !== 'not') w = w.replace('this.where','.' + type + 'Where')
-                            else  w = '.andWhereNot'
+                        // 第一项
+                        let func = ''
+                        if (i === 0) {
+                            // 根据上层定义的关系来生成连接词
+                            if (type==='and' || type==='or') func = `this.where('{left}','>=',{right})`
+                            if (type==='not') func = `this.whereNot('{left}','>=',{right})`
                         }
-                        funcDefine += `${w}('${left}','>=',${JSON.stringify(right)})`
+                        else {
+                            if (type==='and') func = `.andWhere('{left}','>=',{right})`
+                            if (type==='or') func = `.orWhere('{left}','>=',{right})`
+                            if (type==='not') func = `.whereNot('{left}','>=',{right})`
+                        }
+                        let itemStr = func.replace('{left}',left).replace('{right}',JSON.stringify(right))
+                        funcDefine += itemStr
                         break
                     }
                     case 'gt': {
-                        let w = 'this.where'
-                        if (type === 'not') w = w + 'Not'
-                        if (i > 0) {
-                            if (type !== 'not') w = w.replace('this.where','.' + type + 'Where')
-                            else  w = '.andWhereNot'
+                        // 第一项
+                        let func = ''
+                        if (i === 0) {
+                            // 根据上层定义的关系来生成连接词
+                            if (type==='and' || type==='or') func = `this.where('{left}','>',{right})`
+                            if (type==='not') func = `this.whereNot('{left}','>',{right})`
                         }
-                        funcDefine += `${w}('${left}','>',${JSON.stringify(right)})`
+                        else {
+                            if (type==='and') func = `.andWhere('{left}','>',{right})`
+                            if (type==='or') func = `.orWhere('{left}','>',{right})`
+                            if (type==='not') func = `.whereNot('{left}','>',{right})`
+                        }
+                        let itemStr = func.replace('{left}',left).replace('{right}',JSON.stringify(right))
+                        funcDefine += itemStr
                         break
                     }
                     case 'lte': {
-                        let w = 'this.where'
-                        if (type === 'not') w = w + 'Not'
-                        if (i > 0) {
-                            if (type !== 'not') w = w.replace('this.where','.' + type + 'Where')
-                            else  w = '.andWhereNot'
+                        // 第一项
+                        let func = ''
+                        if (i === 0) {
+                            // 根据上层定义的关系来生成连接词
+                            if (type==='and' || type==='or') func = `this.where('{left}','<=',{right})`
+                            if (type==='not') func = `this.whereNot('{left}','<=',{right})`
                         }
-                        funcDefine += `${w}('${left}','<=',${JSON.stringify(right)})`
+                        else {
+                            if (type==='and') func = `.andWhere('{left}','<=',{right})`
+                            if (type==='or') func = `.orWhere('{left}','<=',{right})`
+                            if (type==='not') func = `.whereNot('{left}','<=',{right})`
+                        }
+                        let itemStr = func.replace('{left}',left).replace('{right}',JSON.stringify(right))
+                        funcDefine += itemStr
                         break
                     }
                     case 'lt': {
-                        let w = 'this.where'
-                        if (type === 'not') w = w + 'Not'
-                        if (i > 0) {
-                            if (type !== 'not') w = w.replace('this.where','.' + type + 'Where')
-                            else  w = '.andWhereNot'
+                        // 第一项
+                        let func = ''
+                        if (i === 0) {
+                            // 根据上层定义的关系来生成连接词
+                            if (type==='and' || type==='or') func = `this.where('{left}','<',{right})`
+                            if (type==='not') func = `this.whereNot('{left}','<',{right})`
                         }
-                        funcDefine += `${w}('${left}','<',${JSON.stringify(right)})`
+                        else {
+                            if (type==='and') func = `.andWhere('{left}','<',{right})`
+                            if (type==='or') func = `.orWhere('{left}','<',{right})`
+                            if (type==='not') func = `.whereNot('{left}','<',{right})`
+                        }
+                        let itemStr = func.replace('{left}',left).replace('{right}',JSON.stringify(right))
+                        funcDefine += itemStr
                         break
                     }
                     case 'in': {
-                        let w = 'this.whereIn'
-                        if (type === 'not') w = w.replace('In','NotIn')
-                        if (i > 0) {
-                            if (type !== 'not') w = w.replace('this.where','.' + type + 'Where')
-                            else  w = '.andWhereNotIn'
+                        // 第一项
+                        let func = ''
+                        if (i === 0) {
+                            // 根据上层定义的关系来生成连接词
+                            if (type==='and' || type==='or') func = `this.whereIn('{left}',{right})`
+                            else func = `this.whereNotIn('{left}',{right})`
                         }
-                        funcDefine += `${w}('${left}',${JSON.stringify(right)})`
+                        else {
+                            if (type==='and') func = `.andWhere(function(){this.whereIn('{left}',{right})})`
+                            if (type==='or') func = `.orWhereIn('{left}',{right})`
+                            if (type==='not') func = `.whereNotIn('{left}',{right})`
+                        }
+                        let itemStr = func.replace('{left}',left).replace('{right}',JSON.stringify(right))
+                        // console.log(itemStr)
+                        funcDefine += itemStr
                         break
                     }
                     case 'notIn': {
-                        let w = 'this.whereNotIn'
-                        if (type === 'not') w = w.replace('NotIn','In')
-                        if (i > 0) {
-                            if (type !== 'not') w = w.replace('this.where','.' + type + 'Where')
-                            else  w = '.andWhereIn'
+                        // 第一项
+                        let func = ''
+                        if (i === 0) {
+                            // 根据上层定义的关系来生成连接词
+                            if (type==='and' || type==='or') func = `this.whereNotIn('{left}',{right})`
+                            else func = `this.whereIn('{left}',{right})`
                         }
-                        funcDefine += `${w}('${left}',${JSON.stringify(right)})`
+                        else {
+                            if (type==='and') func = `.andWhere(function(){this.whereNotIn('{left}',{right})})`
+                            if (type==='or') func = `.orWhereNotIn('{left}',{right})`
+                            if (type==='not') func = `.whereIn('{left}',{right})`
+                        }
+                        let itemStr = func.replace('{left}',left).replace('{right}',JSON.stringify(right))
+                        // console.log(itemStr)
+                        funcDefine += itemStr
                         break
                     }
                     case 'like': {
-                        let w = 'this.where'
-                        if (type === 'not') w = w + 'Not'
-                        if (i > 0) {
-                            if (type !== 'not') w = w.replace('this.where','.' + type + 'Where')
-                            else  w = '.andWhereNot'
+                        // 第一项
+                        let func = ''
+                        if (i === 0) {
+                            // 根据上层定义的关系来生成连接词
+                            if (type==='and' || type==='or') func = `this.where('{left}','like',{right})`
+                            if (type==='not') func = `this.whereNot('{left}','like',{right})`
                         }
-                        funcDefine += `${w}('${left}','like',${JSON.stringify(right)})`
+                        else {
+                            if (type==='and') func = `.andWhere('{left}','like',{right})`
+                            if (type==='or') func = `.orWhere('{left}','like',{right})`
+                            if (type==='not') func = `.whereNot('{left}','like',{right})`
+                        }
+                        let itemStr = func.replace('{left}',left).replace('{right}',JSON.stringify(right))
+                        funcDefine += itemStr
                         break
                     }
                     case 'notLike': {
-                        let w = 'this.whereNot'
-                        if (type === 'not') w = w.replace('Not','')
-                        if (i > 0) {
-                            if (type !== 'not') w = w.replace('this.where','.' + type + 'Where')
-                            else  w = '.andWhere'
+                        // 第一项
+                        let func = ''
+                        if (i === 0) {
+                            // 根据上层定义的关系来生成连接词
+                            if (type==='and' || type==='or') func = `this.whereNot('{left}','like',{right})`
+                            if (type==='not') func = `this.where('{left}','like',{right})`
                         }
-                        funcDefine += `${w}('${left}','like',${JSON.stringify(right)})`
+                        else {
+                            if (type==='and') func = `.andWhere(function(){this.whereNot('{left}','like',{right})})`
+                            if (type==='or') func = `.orWhereNot('{left}','like',{right})`
+                            if (type==='not') func = `.where('{left}','like',{right})`
+                        }
+                        let itemStr = func.replace('{left}',left).replace('{right}',JSON.stringify(right))
+                        funcDefine += itemStr
+                        break
+                    }
+                    case 'contains': {
+                        // 第一项
+                        let func = ''
+                        if (i === 0) {
+                            // 根据上层定义的关系来生成连接词
+                            if (type==='and' || type==='or') func = `this.where('{left}','like',${JSON.stringify('%'+right+'%')})`
+                            if (type==='not') func = `this.whereNot('{left}','like',${JSON.stringify('%'+right+'%')})`
+                        }
+                        else {
+                            if (type==='and') func = `.andWhere('{left}','like',${JSON.stringify('%'+right+'%')})`
+                            if (type==='or') func = `.orWhere('{left}','like',${JSON.stringify('%'+right+'%')})`
+                            if (type==='not') func = `.whereNot('{left}','like',${JSON.stringify('%'+right+'%')})`
+                        }
+                        let itemStr = func.replace('{left}',left)
+                        funcDefine += itemStr
+                        break
+                    }
+                    case 'notContain': {
+                        // 第一项
+                        let func = ''
+                        if (i === 0) {
+                            // 根据上层定义的关系来生成连接词
+                            if (type==='and' || type==='or') func = `this.whereNot('{left}','like',${JSON.stringify('%'+right+'%')})`
+                            if (type==='not') func = `this.where('{left}','like',${JSON.stringify('%'+right+'%')})`
+                        }
+                        else {
+                            if (type==='and') func = `.andWhere(function(){this.whereNot('{left}','like',${JSON.stringify('%'+right+'%')})})`
+                            if (type==='or') func = `.orWhereNot('{left}','like',${JSON.stringify('%'+right+'%')})`
+                            if (type==='not') func = `.where('{left}','like',${JSON.stringify('%'+right+'%')})`
+                        }
+                        let itemStr = func.replace('{left}',left)
+                        funcDefine += itemStr
+                        break
+                    }
+                    case 'startsWith': {
+                        // 第一项
+                        let func = ''
+                        if (i === 0) {
+                            // 根据上层定义的关系来生成连接词
+                            if (type==='and' || type==='or') func = `this.where('{left}','like',${JSON.stringify(right+'%')})`
+                            if (type==='not') func = `this.whereNot('{left}','like',${JSON.stringify(right+'%')})`
+                        }
+                        else {
+                            if (type==='and') func = `.andWhere('{left}','like',${JSON.stringify(right+'%')})`
+                            if (type==='or') func = `.orWhere('{left}','like',${JSON.stringify(right+'%')})`
+                            if (type==='not') func = `.whereNot('{left}','like',${JSON.stringify(right+'%')})`
+                        }
+                        let itemStr = func.replace('{left}',left)
+                        funcDefine += itemStr
+                        break
+                    }
+                    case 'notStartWith': {
+                        // 第一项
+                        let func = ''
+                        if (i === 0) {
+                            // 根据上层定义的关系来生成连接词
+                            if (type==='and' || type==='or') func = `this.whereNot('{left}','like',${JSON.stringify(right+'%')})`
+                            if (type==='not') func = `this.where('{left}','like',${JSON.stringify(right+'%')})`
+                        }
+                        else {
+                            if (type==='and') func = `.andWhere(function(){this.whereNot('{left}','like',${JSON.stringify(right+'%')})})`
+                            if (type==='or') func = `.orWhereNot('{left}','like',${JSON.stringify(right+'%')})`
+                            if (type==='not') func = `.where('{left}','like',${JSON.stringify(right+'%')})`
+                        }
+                        let itemStr = func.replace('{left}',left)
+                        funcDefine += itemStr
+                        break
+                    }
+                    case 'endsWith': {
+                        // 第一项
+                        let func = ''
+                        if (i === 0) {
+                            // 根据上层定义的关系来生成连接词
+                            if (type==='and' || type==='or') func = `this.where('{left}','like',${JSON.stringify('%'+right)})`
+                            if (type==='not') func = `this.whereNot('{left}','like',${JSON.stringify('%'+right)})`
+                        }
+                        else {
+                            if (type==='and') func = `.andWhere('{left}','like',${JSON.stringify('%'+right)})`
+                            if (type==='or') func = `.orWhere('{left}','like',${JSON.stringify('%'+right)})`
+                            if (type==='not') func = `.whereNot('{left}','like',${JSON.stringify('%'+right)})`
+                        }
+                        let itemStr = func.replace('{left}',left)
+                        funcDefine += itemStr
+                        break
+                    }
+                    case 'notEndWith': {
+                        // 第一项
+                        let func = ''
+                        if (i === 0) {
+                            // 根据上层定义的关系来生成连接词
+                            if (type==='and' || type==='or') func = `this.whereNot('{left}','like',${JSON.stringify('%'+right)})`
+                            if (type==='not') func = `this.where('{left}','like',${JSON.stringify('%'+right)})`
+                        }
+                        else {
+                            if (type==='and') func = `.andWhere(function(){this.whereNot('{left}','like',${JSON.stringify('%'+right)})})`
+                            if (type==='or') func = `.orWhereNot('{left}','like',${JSON.stringify('%'+right)})`
+                            if (type==='not') func = `.where('{left}','like',${JSON.stringify('%'+right)})`
+                        }
+                        let itemStr = func.replace('{left}',left)
+                        funcDefine += itemStr
                         break
                     }
                     case 'between': {
-                        let w = 'this.whereBetween'
-                        if (type === 'not') w = w.replace('Between','NotBetween')
-                        if (i > 0) {
-                            if (type !== 'not') w = w.replace('this.where','.' + type + 'Where')
-                            else  w = '.andWhereNotBetween'
+                        // 第一项
+                        let func = ''
+                        if (i === 0) {
+                            // 根据上层定义的关系来生成连接词
+                            if (type==='and' || type==='or') func = `this.whereBetween('{left}',{right})`
+                            else func = `this.whereNotBetween('{left}',{right})`
                         }
-                        funcDefine += `${w}('${left}',${JSON.stringify(right)})`
+                        else {
+                            if (type==='and') func = `.andWhere(function(){this.whereBetween('{left}',{right})})`
+                            if (type==='or') func = `.orWhereBetween('{left}',{right})`
+                            if (type==='not') func = `.whereNotBetween('{left}',{right})`
+                        }
+                        let itemStr = func.replace('{left}',left).replace('{right}',JSON.stringify(right))
+                        // console.log(itemStr)
+                        funcDefine += itemStr
                         break
                     }
                     case 'notBetween': {
-                        let w = 'this.whereNotBetween'
-                        if (type === 'not') w = w.replace('NotBetween','Between')
-                        if (i > 0) {
-                            if (type !== 'not') w = w.replace('this.where','.' + type + 'Where')
-                            else  w = '.andWhereBetween'
+                        // 第一项
+                        let func = ''
+                        if (i === 0) {
+                            // 根据上层定义的关系来生成连接词
+                            if (type==='and' || type==='or') func = `this.whereNotBetween('{left}',{right})`
+                            else func = `this.whereBetween('{left}',{right})`
                         }
-                        funcDefine += `${w}('${left}',${JSON.stringify(right)})`
+                        else {
+                            if (type==='and') func = `.andWhere(function(){this.whereNotBetween('{left}',{right})})`
+                            if (type==='or') func = `.orWhereNotBetween('{left}',{right})`
+                            if (type==='not') func = `.whereBetween('{left}',{right})`
+                        }
+                        let itemStr = func.replace('{left}',left).replace('{right}',JSON.stringify(right))
+                        // console.log(itemStr)
+                        funcDefine += itemStr
                         break
                     }
                     case 'isNull': {
-                        let w = 'this.whereNull'
-                        if (type === 'not') w = w.replace('Null','NotNull')
-                        if (i > 0) {
-                            if (type !== 'not') w = w.replace('this.where','.' + type + 'Where')
-                            else  w = '.andWhereNotNull'
+                        // 第一项
+                        let func = ''
+                        if (i === 0) {
+                            // 根据上层定义的关系来生成连接词
+                            if (type==='and' || type==='or') func = `this.whereNull('{left}')`
+                            else func = `this.whereNotNull('{left}')`
                         }
-                        funcDefine += `${w}('${left}')`
+                        else {
+                            if (type==='and') func = `.andWhere(function(){this.whereNull('{left}')})`
+                            if (type==='or') func = `.orWhereNull('{left}')`
+                            if (type==='not') func = `.whereNotNull('{left}')`
+                        }
+                        let itemStr = func.replace('{left}',left)
+                        // console.log(itemStr)
+                        funcDefine += itemStr
                         break
                     }
                     case 'isNotNull': {
-                        let w = 'this.whereNotNull'
-                        if (type === 'not') w = w.replace('NotNull','Null')
-                        if (i > 0) {
-                            if (type !== 'not') w = w.replace('this.where','.' + type + 'Where')
-                            else  w = '.andWhereNull'
+                        // 第一项
+                        let func = ''
+                        if (i === 0) {
+                            // 根据上层定义的关系来生成连接词
+                            if (type==='and' || type==='or') func = `this.whereNotNull('{left}')`
+                            else func = `this.whereNull('{left}')`
                         }
-                        funcDefine += `${w}('${left}')`
+                        else {
+                            if (type==='and') func = `.andWhere(function(){this.whereNotNull('{left}')})`
+                            if (type==='or') func = `.orWhereNotNull('{left}')`
+                            if (type==='not') func = `.whereNull('{left}')`
+                        }
+                        let itemStr = func.replace('{left}',left)
+                        // console.log(itemStr)
+                        funcDefine += itemStr
                         break
                     }
                     default:
@@ -1106,7 +1346,7 @@ async function getSubConditionFunc(obj,type,cmd,parent,root,knex,trx,doorman,sca
  * @param {array} commands 指令集
  * @param {string} lang 提示信息所用语言
  */
-async function executeFunction(knex,trx,doorman,scanner,dispatcher,isTop,cmd,parent,root,logs,user,commands,lang) {
+async function executeFunction(knex,trx,doorman,scanner,cacher,dispatcher,isTop,cmd,parent,root,logs,user,commands,lang) {
     if (JS._.isUndefined(lang)) lang = JE.i18nLang
     // 服务端函数指令
     try {
@@ -1174,13 +1414,13 @@ async function executeFunction(knex,trx,doorman,scanner,dispatcher,isTop,cmd,par
                                 ['zh-cn', `${prefix(level+1)}$ 开始执行顶层命令 /${command.name} [${command.type} 类型]`],
                                 ['en-us', `${prefix(level+1)}$ Begin to handle top command /${command.name} ['${command.type}' type]`]
                             ],lang)
-                            await handleCmd(knex,trx,doorman,scanner,dispatcher,isTop,commands[idx],parent,root,logs,user,commands,level+1,lang)
+                            await handleCmd(knex,trx,doorman,scanner,cacher,dispatcher,isTop,commands[idx],parent,root,logs,user,commands,level+1,lang)
                             addLog(logs, [
                                 ['zh-cn', `${prefix(level+1)}$ 顶层命令 /${command.name} 执行完毕`],
                                 ['en-us', `${prefix(level+1)}$ Top command /${command.name} finished`]
                             ],lang)
                             // 然后重新执行
-                            return await executeFunction(knex,trx,doorman,scanner,dispatcher,isTop,cmd,parent,root,logs,user,commands,lang)
+                            return await executeFunction(knex,trx,doorman,scanner,cacher,dispatcher,isTop,cmd,parent,root,logs,user,commands,lang)
                         }
                         else JS.throwError('DefError',null,null,[
                             ['zh-cn', `被引用对象 '/${ref}' 不存在于 commands 指令集中`],
@@ -1225,7 +1465,7 @@ async function executeFunction(knex,trx,doorman,scanner,dispatcher,isTop,cmd,par
  * @param {integer} level 缩进层次
  * @param {string} lang 提示信息所用语言
  */
-async function checkOnlyIf(cmd,parent,root,knex,trx,doorman,scanner,dispatcher,isTop,logs,user,commands,level,lang) {
+async function checkOnlyIf(cmd,parent,root,knex,trx,doorman,scanner,cacher,dispatcher,isTop,logs,user,commands,level,lang) {
     if (JS._.isUndefined(lang)) lang = JE.i18nLang
     try {
         // console.log('checkOnlyIf',cmd.name)
@@ -1252,13 +1492,13 @@ async function checkOnlyIf(cmd,parent,root,knex,trx,doorman,scanner,dispatcher,i
                     ['en-us', `${prefix(level+1)}$ Begin to handle top command /${command.name} ['${command.type}' type]`]
                 ],lang)
                 // 执行查询
-                await handleCmd(knex,trx,doorman,scanner,dispatcher,isTop,commands[idx],parent,root,logs,user,commands,level+1,lang)
+                await handleCmd(knex,trx,doorman,scanner,cacher,dispatcher,isTop,commands[idx],parent,root,logs,user,commands,level+1,lang)
                 addLog(logs, [
                     ['zh-cn', `${prefix(level+1)}$ 顶层命令 /${command.name} 执行完毕`],
                     ['en-us', `${prefix(level+1)}$ Top command /${command.name} finished`]
                 ],lang)
                 // 然后重新执行 onlyIf 并返回
-                return await checkOnlyIf(cmd,parent,root,knex,trx,doorman,scanner,dispatcher,isTop,logs,user,commands,level,lang)
+                return await checkOnlyIf(cmd,parent,root,knex,trx,doorman,scanner,cacher,dispatcher,isTop,logs,user,commands,level,lang)
             }
             else JS.throwError('OnlyIfDefError',null,null,[
                 ['zh-cn', `'onlyIf' 条件中的被引用对象 '/${ref}' 不存在于 commands 指令集中`],

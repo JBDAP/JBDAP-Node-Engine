@@ -93,7 +93,7 @@ test('测试 getObjFromList 方法', () => {
             pA: 2,
             $or: {
                 'pB#ne': false,
-                'pC#contain': 'o'
+                'pC#contains': 'o'
             }
         }
     }

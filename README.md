@@ -261,7 +261,7 @@ Request:
  * 1、属性的 key 用 # 隔开了 field 名称与运算符，支持的运算符有：
  *    值比较：eq, ne, lte, lt, gte, gt
  *    包含判断：in, notIn
- *    字符串匹配：like, notLike
+ *    字符串匹配：like, notLike, contains, notContain, startsWith, notStartWith, endsWith, notEndWith
  *    区域判断：between, notBetween
  *    Null 值判断：isNull, isNotNull
  *    分组运算符: and, or, not
@@ -1046,8 +1046,8 @@ Request:
  * 3、两者运算符也有不同
  *    没有 like 和 notLike
  *    没有 between 和 notBetween
- *    新增 match 和 notMatch
- *    新增 exist 和 notExist
+ *    新增 matches 和 notMatch
+ *    新增 exists 和 notExist
  *    新增 isUndefined 和 isNotUndefined
  *    新增 isEmpty 和 isNotEmpty
  */

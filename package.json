@@ -1,6 +1,6 @@
 {
   "name": "jbdap-engine",
-  "version": "0.2.15",
+  "version": "0.2.29",
   "description": "The official JBDAP implementation written in nodejs. ",
   "main": "index.js",
   "scripts": {
@@ -24,6 +24,7 @@
     "@babel/core": "^7.4.5",
     "@babel/preset-env": "^7.4.5",
     "jest": "^24.8.0",
+    "lodash": "^4.17.15",
     "readline": "^1.3.0",
     "sqlite3": "^4.0.8"
   }
