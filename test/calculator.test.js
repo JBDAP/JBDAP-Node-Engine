@@ -661,7 +661,7 @@ test('测试 getValue 方法', () => {
         name: '',
         operator: 'pick',
         fields: 'id'
-    })).toEqual(null)
+    })).toEqual([])
     // first#* 从空数组
     expect(calculator.getValue([],{
         name: '',

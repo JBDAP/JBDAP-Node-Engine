@@ -371,7 +371,7 @@ test('测试 getValueFromList 方法', () => {
         maxp2: null,
         minp1: null,
         firstp3: null,
-        pickid: null,
+        pickid: [],
         clonepart: null
     })
 })

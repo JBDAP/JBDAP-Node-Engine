@@ -547,65 +547,71 @@ async function queryCmd(knex,trx,doorman,scanner,cacher,dispatcher,isTop,cmd,par
             let func = await getWhereFunc(cmd,parent,root,knex,trx,doorman,scanner,cacher,dispatcher,isTop,logs,user,commands,level,lang)
             let cmdCopy = JS._.clone(cmd)
             cmdCopy.whereFunc = func
+            let hasCacher = false
+            let hasCache = false
             if (JS._.isFunction(cacher)) {
+                hasCacher = true
                 // 取值
                 let cache = cacher('get',cmdCopy)
                 // 缓存命中
-                if (cache !== null) result = cache
-                // 没命中则查询表
-                else {
-                    // 1、定位到数据表
-                    let query = knex.from(cmd.target)
-                    if (trx !== null) query = trx(cmd.target)
-                    // 2、设定要查询的原始字段
-                    // 能够使用 sql 函数的计算类型
-                    if (cmd.type !== 'values' || (cmd.type === 'values' && needList)) {
-                        if (rawFields === '*') query = query.select()
-                        else query = query.column(rawFields).select()
-                    }
-                    // 3、是否有定义查询规则
-                    if (!JS._.isUndefined(cmd.query)) {
-                        // 3.1 检查 where 内容
-                        // console.log(func)
-                        if (func !== null) query = eval('query.where(' + func + ')')
-                        // 3.2、解析 order
-                        let order = parser.parseOrder(cmd.query.order,lang)
-                        if (order.length > 0) query = query.orderBy(order)
-                        // 3.3、解析 size 和 page
-                        let pas = parser.parseOffsetAndLimit(cmd.query.page,cmd.query.size,lang)
-                        // 取有限记录
-                        if (pas.limit > 0) query = query.limit(pas.limit)
-                        // 有翻页
-                        if (pas.offset > 0) query = query.offset(pas.offset)
-                    }
-                    // 4、执行查询
-                    // 只用 sql 函数就可以实现的 values 查询
-                    if (cmd.type === 'values' && needList === false) {
-                        if (valuesFields.length === 0) JS.throwError('FieldsDefError',null,null,[
-                            ['zh-cn', `'values' 查询类型至少要定义一个取值字段`],
-                            ['en-us', `Queries of type 'values' require at least one value field`]
-                        ],lang)
-                        for (let i=0; i<valuesFields.length; i++) {
-                            // 传入查询结果进行处理
-                            let item = valuesFields[i]
-                            let slices = item.fields.split(',')
-                            if (slices.length > 1) JS.throwError('FieldsDefError',null,null,[
-                                ['zh-cn', `'${item.operator}' 运算只接受一个字段`],
-                                ['en-us', `Calculations of type '${item.operator}' accept only one field`]
-                            ],lang)
-                            query = eval(`query.${item.operator}({ ${item.name}: '${slices[0]}' })`)
-                        }
-                        console.log('sql:',query.toString())
-                        let list = await query
-                        result = list[0]
-                    }
-                    else {
-                        console.log('sql:',query.toString())
-                        result = await query
-                    }
-                    // 存入缓存
-                    if (JS._.isFunction(cacher)) cacher('set',cmdCopy,result)
+                if (cache !== null) {
+                    result = cache
+                    hasCache = true
                 }
+            }
+            // 没命中则查询表
+            if (!hasCache) {
+                // 1、定位到数据表
+                let query = knex.from(cmd.target)
+                if (trx !== null) query = trx(cmd.target)
+                // 2、设定要查询的原始字段
+                // 能够使用 sql 函数的计算类型
+                if (cmd.type !== 'values' || (cmd.type === 'values' && needList)) {
+                    if (rawFields === '*') query = query.select()
+                    else query = query.column(rawFields).select()
+                }
+                // 3、是否有定义查询规则
+                if (!JS._.isUndefined(cmd.query)) {
+                    // 3.1 检查 where 内容
+                    // console.log(func)
+                    if (func !== null) query = eval('query.where(' + func + ')')
+                    // 3.2、解析 order
+                    let order = parser.parseOrder(cmd.query.order,lang)
+                    if (order.length > 0) query = query.orderBy(order)
+                    // 3.3、解析 size 和 page
+                    let pas = parser.parseOffsetAndLimit(cmd.query.page,cmd.query.size,lang)
+                    // 取有限记录
+                    if (pas.limit > 0) query = query.limit(pas.limit)
+                    // 有翻页
+                    if (pas.offset > 0) query = query.offset(pas.offset)
+                }
+                // 4、执行查询
+                // 只用 sql 函数就可以实现的 values 查询
+                if (cmd.type === 'values' && needList === false) {
+                    if (valuesFields.length === 0) JS.throwError('FieldsDefError',null,null,[
+                        ['zh-cn', `'values' 查询类型至少要定义一个取值字段`],
+                        ['en-us', `Queries of type 'values' require at least one value field`]
+                    ],lang)
+                    for (let i=0; i<valuesFields.length; i++) {
+                        // 传入查询结果进行处理
+                        let item = valuesFields[i]
+                        let slices = item.fields.split(',')
+                        if (slices.length > 1) JS.throwError('FieldsDefError',null,null,[
+                            ['zh-cn', `'${item.operator}' 运算只接受一个字段`],
+                            ['en-us', `Calculations of type '${item.operator}' accept only one field`]
+                        ],lang)
+                        query = eval(`query.${item.operator}({ ${item.name}: '${slices[0]}' })`)
+                    }
+                    console.log('sql:',query.toString())
+                    let list = await query
+                    result = list[0]
+                }
+                else {
+                    console.log('sql:',query.toString())
+                    result = await query
+                }
+                // 存入缓存
+                if (hasCacher) cacher('set',cmdCopy,result)
             }
             // console.log('result',result)
             // 5、传给检验函数进行权限验证
