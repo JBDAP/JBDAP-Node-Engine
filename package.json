@@ -20,7 +20,7 @@
   },
   "dependencies": {
     "jbdap-global": "^0.1.5",
-    "knex": "^0.17.5",
+    "knex": "^0.19.5",
     "xss": "^1.0.6"
   },
   "devDependencies": {
