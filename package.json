@@ -1,6 +1,6 @@
 {
   "name": "jbdap-engine",
-  "version": "0.2.30",
+  "version": "0.2.31",
   "description": "The official JBDAP implementation written in nodejs. ",
   "main": "index.js",
   "scripts": {
@@ -19,8 +19,8 @@
     "url": "https://github.com/JBDAP/JBDAP-Node-Engine"
   },
   "dependencies": {
-    "jbdap-global": "^0.1.5",
-    "knex": "^0.17.5",
+    "jbdap-global": "^0.1.6",
+    "knex": "^0.20.11",
     "xss": "^1.0.6"
   },
   "devDependencies": {

@@ -16,7 +16,7 @@ import { version } from '../package.json'
 module.exports.version = version
 
 // 将自带的 knex 暴露出来供调用
-module.exports.knex = JS.knex
+module.exports.knex = require('knex')
 
 /**
  * 解析并执行 json 中的指令
