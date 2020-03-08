@@ -288,8 +288,8 @@ async function handleCmd(knex,trx,doorman,scanner,cacher,dispatcher,isTop,cmd,pa
         // 3、检查指令权限
         // 非引用指令才有必要检查
         if (cmd.target.indexOf('/') < 0) {
-            // 以 JBDAP_ 开头的系统内置表均不可被前端访问
-            if (cmd.target.indexOf('JBDAP_') === 0) JS.throwError('AuthError',null,null,[
+            // 以 JBDAP_ 或者 SYS_ 开头的系统内置表均不可被前端访问
+            if (cmd.target.indexOf('JBDAP_') === 0 || cmd.target.indexOf('SYS_') === 0) JS.throwError('AuthError',null,null,[
                 ['zh-cn', `没有权限执行当前指令 '${cmd.name}'`],
                 ['en-us', `No authority to handle current command '${cmd.name}'`]
             ],lang)
