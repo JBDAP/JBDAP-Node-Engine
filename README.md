@@ -2,14 +2,18 @@
 
 <div style="width:100%;height:20px;border:none;"></div>
 
-> ## *此项目已经停止维护，但是可以继续正常使用。在 Node 版 JBDAP 升级的过程中我们意识到，虽然 knex 是一个很好的数据库操作适配器，但是使用一套引擎来适配多种数据库还是有其明显的缺点，更不利于我们针对不同数据库扩展其各自功能，所以我们后面会为每一个数据库提供单独的实现。* —— 2020.07.08
+> ### *此项目已经停止维护，但是可以继续正常使用。在 Node 版 JBDAP 升级的过程中我们意识到，虽然 knex 是一个很好的数据库操作适配器，但是使用一套引擎来适配多种数据库还是有其明显的缺点，更不利于我们针对不同数据库扩展其各自功能，所以我们后面会为每一个数据库提供单独的实现。* —— 2020.07.08
 
 目前已经单独实现且可用的数据库 JBDAP 引擎如下：
 
-- ### **[JBDAP-Node-Sqlite](https://github.com/JBDAP/JBDAP-Node-Sqlite)**
-- ### **[JBDAP-Node-Mysql](https://github.com/JBDAP/JBDAP-Node-Mysql)**
+- Sqlite 引擎
+  - **[github repo](https://github.com/JBDAP/JBDAP-Node-Sqlite)**
+  - **[npm package](https://www.npmjs.com/package/jbdap-sqlite)**
+- Mysql 引擎
+  - **[github repo](https://github.com/JBDAP/JBDAP-Node-Mysql)**
+  - **[npm package](https://www.npmjs.com/package/jbdap-mysql)**
 
-欢迎您使用！
+### 欢迎您使用！
 
 <div style="width:100%;height:40px;border:none;"></div>
 
