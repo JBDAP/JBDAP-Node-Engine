@@ -5,6 +5,7 @@
 // 开发环境准备，即 global.$JBDAP_SYS
 if (!global.JBDAP_GLOBAL_OK) require('jbdap-global')
 let JS = global.$JBDAP_SYS
+if (!JS['_']) JS._ = require('lodash')
 
 // JBDAP 运行环境配置准备
 if (!global.$JBDAP_ENV) global.$JBDAP_ENV = {
